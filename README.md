@@ -9,5 +9,5 @@ QUICHE is a statistical differential abundance testing method that can be used t
 We are currently in the process of porting over our existing code into this independent repository. In the meantime, you can access the code associated with the paper [here](https://github.com/angelolab/publications/tree/main/2024-Ranek_etal_QUICHE). 
 
 ## Data access
-You can download all of the preprocessed MIBI-TOF datasets (`.h5ad` files) from the [Zenodo](https://zenodo.org/records/14290163) repository. For imaging data and cell segmentation masks can be found in the [BioStudies](https://www.ebi.ac.uk/biostudies/bioimages/studies/S-BIAD1507) repository. 
+You can download all of the preprocessed MIBI-TOF datasets (`.h5ad` files) from the [Zenodo](https://zenodo.org/records/14290163) repository. Imaging data and cell segmentation masks can be found in the [BioStudies](https://www.ebi.ac.uk/biostudies/bioimages/studies/S-BIAD1507) repository. 
 
