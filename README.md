@@ -11,3 +11,40 @@ We are currently in the process of porting over our existing code into this inde
 ## Data access
 You can download all of the preprocessed MIBI-TOF datasets (`.h5ad` files) from the [Zenodo](https://zenodo.org/records/14290163) repository. Imaging data and cell segmentation masks can be found in the [BioStudies](https://www.ebi.ac.uk/biostudies/bioimages/studies/S-BIAD1507) repository. 
 
+## Installation
+You can clone the git repository by, 
+```
+git clone https://github.com/jranek/quiche.git
+```
+Then change the working directory as, 
+```
+cd quiche
+```
+
+For installation, we recommend that you create a conda environment using the provided yml file.
+
+```
+conda env create -f venv_quiche.yml
+```
+
+Once the environment is created, you can activate it by,
+```
+conda activate venv_quiche
+```
+
+In order to perform spatial enrichment analysis with QUICHE, you'll also need to install the necessary R packages.
+
+```R
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+#edger v3.40.2
+BiocManager::install("edgeR")
+
+#statmod v1.5.0
+install.packages('statmod')
+```
+
+## License
+This software is licensed under the MIT license (https://opensource.org/licenses/MIT).
+
