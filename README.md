@@ -49,6 +49,8 @@ install.packages('statmod')
 BiocManager::install("edgeR")
 ```
 
+## Example usage
+
 ## License
 This software is licensed under the MIT license (https://opensource.org/licenses/MIT).
 
