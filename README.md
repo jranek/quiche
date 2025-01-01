@@ -38,11 +38,11 @@ In order to perform spatial enrichment analysis with QUICHE, you'll also need to
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-#edger v3.40.2
-BiocManager::install("edgeR")
-
 #statmod v1.5.0
 install.packages('statmod')
+
+#edger v3.40.2
+BiocManager::install("edgeR")
 ```
 
 ## License
