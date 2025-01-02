@@ -426,6 +426,7 @@ def beeswarm(quiche_op,
     -------
     None
     """
+    sns.set_style('ticks')
     if not hasattr(quiche_op, 'mdata'):
         raise AttributeError("Must run quiche first.")
 
@@ -609,6 +610,7 @@ def beeswarm_proportion(quiche_op,
         -------
         None
         """
+        sns.set_style('ticks')
         if not hasattr(quiche_op, 'mdata'):
             raise AttributeError("Must run quiche first.")
         
