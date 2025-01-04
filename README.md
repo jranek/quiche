@@ -50,6 +50,52 @@ BiocManager::install("edgeR")
 ```
 
 ## Example usage
+In the subsections below, we will walk through a simple example of how you can use QUICHE. For a more detailed tutorial, including the necessary plotting functions, please see the demo Jupyter notebook [here](https://github.com/jranek/quiche/blob/main/notebooks/demo.ipynb). 
+
+To perform spatial enrichment analysis with QUICHE, first load in the necessary packages.
+
+```python
+import os
+import anndata
+import quiche as qu
+```
+
+You can download an example dataset from the Zenodo repository by, 
+
+```python
+qu.pp.download_data(id = 'spain_preprocessed', overwrite = True)
+```
+
+Next, read in a preprocessed single-cell `.h5ad` object. The example `.h5ad` object contains multiple patient samples with TNBC profiled with MIBI-TOF imaging. Here, we're interested in identifying local cellular niches differentially-enriched in patients that do or do not relapse. 
+
+```python
+## load in data
+adata = anndata.read_h5ad(os.path.join('data', 'spain_preprocessed.h5ad'))
+adata.obs['Relapse'] = adata.obs['Relapse'].astype('int').astype('str')
+
+## standardize expression data
+adata.raw = adata
+adata.X = qu.pp.standardize(adata.X)
+
+## filter fovs with few cells
+sketch_size = 1000
+adata  = qu.pp.filter_fovs(adata, 'Patient_ID', sketch_size)
+```
+
+Then you can perform QUICHE spatial enrichment analysis by,
+
+```python
+## initialize class
+quiche_op = qu.tl.QUICHE(adata = adata, labels_key = 'cell_cluster', spatial_key = 'spatial', fov_key = 'fov', patient_key = 'Patient_ID', segmentation_label_key = 'label')
+## step 1: compute spatial niches 
+quiche_op.compute_spatial_niches(radius = 200, n_neighbors = 30, min_cell_threshold = 3)
+## step 2: perform distribution-focused downsampling
+quiche_op.subsample(sketch_size = sketch_size, sketch_key = 'Patient_ID', n_jobs = 8)
+## step 3: test for differential spatial enrichment across relapse conditions
+quiche_op.differential_enrichment(design = '~Relapse', model_contrasts = 'Relapse1-Relapse0', k_sim = 100)
+## step 4: annotate niche neighborhoods
+quiche_op.annotate_niches(nlargest = 3, annotation_scheme = 'neighborhood', annotation_key = 'quiche_niche_neighborhood')
+```
 
 ## License
 This software is licensed under the MIT license (https://opensource.org/licenses/MIT).
