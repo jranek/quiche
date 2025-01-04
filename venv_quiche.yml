@@ -34,3 +34,4 @@ dependencies:
         - jax==0.4.13
         - jaxlib==0.4.13
         - chex==0.1.8
+        - .
