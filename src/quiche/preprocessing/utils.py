@@ -114,7 +114,7 @@ def download_data(id: str = 'nt_preprocessed',
         dest_file_path = Path(os.path.join(dest_str, id +'.h5ad'))
         dest_file_path = Path(dest_file_path)
 
-        # Check if the file already exists
+        #check if the file already exists
         if dest_file_path.exists():
             if overwrite:
                 logging.info(f"Overwriting existing file at {dest_file_path}")
