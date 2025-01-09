@@ -4,7 +4,7 @@ QUantitative InterCellular nicHe Enrichment
 
 ## Introduction
 
-QUICHE is a statistical differential abundance testing method that can be used to discover cellular niches differentially enriched in spatial regions, longitudinal samples, or clinical patient groups. For more details on the method, please read the associated preprint: [Ranek JS, Greenwald NF, Goldston M, Camacho Fullaway C, Sowers C, Kong A, Mouron S, Quintela-Fandino M, West RB, Angelo M. QUICHE reveals structural definitions of anti-tumor responses in triple negative breast cancer. 2024]().
+QUICHE is a statistical differential abundance testing method that can be used to discover cellular niches differentially enriched in spatial regions, longitudinal samples, or clinical patient groups. For more details on the method, please read the associated preprint: [Ranek JS, Greenwald NF, Goldston M, Camacho Fullaway C, Sowers C, Kong A, Mouron S, Quintela-Fandino M, West RB, Angelo M. QUICHE reveals structural definitions of anti-tumor responses in triple negative breast cancer. 2024](https://www.biorxiv.org/content/10.1101/2025.01.06.631548v1).
 
 <p>
   <img src="https://github.com/jranek/quiche/blob/main/docs/pipeline.png?raw=True" />
