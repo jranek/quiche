@@ -73,7 +73,7 @@ Next, read in a preprocessed single-cell `.h5ad` object. The example `.h5ad` obj
 adata = anndata.read_h5ad(os.path.join('data', 'spain_preprocessed.h5ad'))
 adata.obs['Relapse'] = adata.obs['Relapse'].astype('int').astype('str')
 
-## standardize expression data
+## normalize expression data according to the modality of interest if this has not already been done. In this case, we'll just standardize the MIBI-TOF data by, 
 adata.raw = adata
 adata.X = qu.pp.standardize(adata.X)
 
