@@ -52,7 +52,7 @@ class QUICHE(BaseEstimator):
         spatial_key: str = 'spatial',
         fov_key: str = 'fov',
         patient_key: str = 'Patient_ID',
-        segmentation_label_key: str = 'label',
+        segmentation_label_key: Optional[str] = 'label',
         verbose: Union[int, bool] = 1,
         **kwargs
     ):
@@ -72,7 +72,7 @@ class QUICHE(BaseEstimator):
         patient_key: str (default = 'Patient_ID')
             column in adata.obs with patient-level identifiers
         segmentation_label_key: str (default = 'label')
-            column in adata.obs with segmentation label information
+            column in adata.obs with segmentation label information. If None, will create a unique ID for every cell
         verbose: int or bool (default = 1)
             verbosity level
         kwargs:
@@ -109,6 +109,10 @@ class QUICHE(BaseEstimator):
         """
         if not isinstance(self.adata, anndata.AnnData):
             raise ValueError("Input data must be anndata.AnnData.")
+        
+        if self.segmentation_label_key is None:
+            self.segmentation_label_key = 'label'
+            self.adata.obs['label'] = [str(i) for i in range(0, len(self.adata.obs_names))]
 
         for key in [self.labels_key, self.fov_key, self.patient_key, self.segmentation_label_key]:
             if key not in self.adata.obs.columns:
