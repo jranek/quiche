@@ -535,9 +535,8 @@ class QUICHE(BaseEstimator):
 
             segmentation_labels = self.mdata['expression'].obs[self.segmentation_label_key].values
             fov_values = self.mdata['expression'].obs[self.fov_key].values
-            patient_values = self.mdata['expression'].obs[self.patient_key].values
-
             expression_data = self.mdata['expression'][:, markers].X
+            
             if isinstance(expression_data, csr_matrix):
                 expression_data = expression_data.toarray()
 
@@ -559,7 +558,6 @@ class QUICHE(BaseEstimator):
                         exp_df[self.segmentation_label_key] = segmentation_labels[idx_cell_type_nn]
                         exp_df[f'{annotation_key}_cell_type'] = f"{niche}:{cell_type}"
                         exp_df[self.fov_key] = fov_values[idx_cell_type_nn]
-                        exp_df[self.patient_key] = patient_values[idx_cell_type_nn]
                         func_records.append(exp_df)
                 return func_records
 
@@ -573,9 +571,9 @@ class QUICHE(BaseEstimator):
             if func_arr:
                 func_df = pd.concat(func_arr, ignore_index=True)
             else:
-                func_df = pd.DataFrame(columns=markers + [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key, self.patient_key])
+                func_df = pd.DataFrame(columns=markers + [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key])
 
-            adata_func = anndata.AnnData(func_df.drop(columns = [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key, self.patient_key]))
-            adata_func.obs = func_df.loc[:, [annotation_key, self.labels_key, f'{annotation_key}_cell_type', self.segmentation_label_key, self.fov_key, self.patient_key]]
+            adata_func = anndata.AnnData(func_df.drop(columns = [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key]))
+            adata_func.obs = func_df.loc[:, [annotation_key, self.labels_key, f'{annotation_key}_cell_type', self.segmentation_label_key, self.fov_key]]
             adata_func.obs = pd.merge(adata_func.obs, pd.DataFrame(self.mdata['quiche'].var.groupby([annotation_key])[foldchange_key].mean()), on = [annotation_key]) ##average logFC of the niche neighborhood
             self.adata_func = adata_func
