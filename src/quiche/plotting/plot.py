@@ -124,7 +124,7 @@ def plot_niches(quiche_op,
     df_cells[labels_key] = subset_mdata.obs[labels_key]
     df_cells[segmentation_label_key]= subset_mdata.obs[segmentation_label_key]
     df_cells[fov_key] = subset_mdata.obs[fov_key]
-    df_cells = df_cells[np.isin(df_cells.cell_cluster, cell_type_list)]
+    df_cells = df_cells[np.isin(df_cells[labels_key], cell_type_list)]
 
     if colors_dict is None:
         if cmap is None:
@@ -300,7 +300,7 @@ def plot_niche_scores(quiche_op,
     df_cells[segmentation_label_key]= subset_mdata.obs[segmentation_label_key]
     df_cells[fov_key] = subset_mdata.obs[fov_key]
     df_cells[metric] = subset_mdata.obs[metric].values
-    df_cells = df_cells[np.isin(df_cells.cell_cluster, cell_type_list)]
+    df_cells = df_cells[np.isin(df_cells[labels_key], cell_type_list)]
 
     if isinstance(cmap, str):
         color_map = cm.get_cmap(cmap)
