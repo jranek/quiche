@@ -36,7 +36,13 @@ Once the environment is created, you can activate it by,
 conda activate venv_quiche
 ```
 
-In order to perform spatial enrichment analysis with QUICHE, you'll also need to install the necessary R packages.
+In order to perform spatial enrichment analysis with QUICHE, you'll also need to install the necessary R packages. To do so, first open R in the terminal with the activated environment as, 
+
+```
+R
+```
+
+Then install the packages as, 
 
 ```R
 if (!require("BiocManager", quietly = TRUE))
