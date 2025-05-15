@@ -19,11 +19,11 @@ dependencies:
     - numba>=0.53.0
     - tqdm
     - pip
-    - r-base=4.2.3
+    - r==4.3
     - r-matrix
+    - r-locfit
     - rpy2==3.5.11
     - squidpy
-    - scprep
     - scipy==1.12.0
     - shapely
     - numpy==1.23.4
