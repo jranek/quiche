@@ -467,7 +467,7 @@ class QUICHE(BaseEstimator):
             else:
                 return 'unidentified'
 
-        annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(row) for row in tqdm.tqdm(data, desc="Labeling Niches"))
+        annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(row) for row in tqdm(data, desc="Labeling Niches"))
         return annotations
     
     def compute_functional_expression(
