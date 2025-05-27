@@ -4,7 +4,7 @@ channels:
     - conda-forge
     - defaults
 dependencies:
-    - anndata>=0.7.6
+    - anndata>=0.7.6,<0.10.9
     - umap-learn==0.5.1
     - scikit-learn>=0.23.2
     - scikit-image>=0.19.2
