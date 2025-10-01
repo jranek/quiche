@@ -77,6 +77,18 @@ class QUICHE(BaseEstimator):
             verbosity level
         kwargs:
             additional keyword arguments
+
+        Example usage
+        ----------
+        # initalize class with your single cell anndata object, while specifying parameters for enrichment testing 
+        # (1) sample level information (e.g., fov_key)
+        # (2) patient level information for statistical testing (e.g., Patient_ID)
+        # (3) annotated spatial objects in each sample (e.g., labels_key)
+        # (4) unique object IDs in each sample (e.g., segmentation_label_key)
+        # (5) spatial coordinates of each object in a sample (e.g., spatial)
+
+        quiche_op = qu.tl.QUICHE(adata = adata, labels_key = 'cell_cluster', spatial_key = 'spatial',
+                                fov_key = 'fov', patient_key = 'Patient_ID', segmentation_label_key = 'label')
         """
         self.adata = adata
         self.labels_key = labels_key
@@ -165,8 +177,16 @@ class QUICHE(BaseEstimator):
             number of tasks for parallelization
 
         Returns
-        -------
+        ----------
         None
+
+        Example usage
+        ----------
+        # define a spatial niche around an index cell as the composition of 30 nearest neighbors bounded by fixed pixel radius of 200
+        quiche_op.compute_spatial_niches(radius = 200, n_neighbors = 30, min_cell_threshold = 3)
+
+        # define a spatial niche around an index cell as the composition of all cells within a fixed pixel radius of 200
+        quiche_op.compute_spatial_niches(radius = 200, n_neighbors = None, min_cell_threshold = 3)
         """
         logger.info('Computing spatial niches...')
         if khop is not None:
@@ -230,8 +250,13 @@ class QUICHE(BaseEstimator):
             number of parallel jobs
 
         Returns
-        -------
+        ----------
         None
+
+        Example usage
+        ----------
+        # perform distribution-focused downsampling by selecting a total of 2500 niches from all images from each patient
+        quiche_op.subsample(sketch_size = 2500, sketch_key = 'Patient_ID', n_jobs = 8)
         """
         if self.adata_niche is None:
             raise RuntimeError("spatial niches have not been computed. call 'compute_spatial_niches' first.")
@@ -276,8 +301,19 @@ class QUICHE(BaseEstimator):
             number of tasks for parallelization
 
         Returns
-        -------
+        ----------
         None
+
+        Example usage
+        ----------
+        # test for differential spatial enrichment across relapse conditions. Here we are building a 100-nearest neighbor niche similarity graph across patients
+        # design: formula written in limma/edgeR style defining the linear model; ~Relapse means the model will estimate a baseline (intercept) and the effect of Relapse
+        # model_contrasts: string defining the specific hypothesis to test; Relapse1-Relapse0 compares relapse 1 group to relapse 0 group
+        quiche_op.differential_enrichment(design = '~Relapse', model_contrasts = 'Relapse1-Relapse0', k_sim = 100)
+
+        # test for differential spatial enrichment using a continuous covariate 
+        # when the predictor is continuous, the coefficient is tested directly so model contrasts are set to None
+        quiche_op.differential_enrichment(design = '~Survival', model_contrasts = None, k_sim = 100)
         """
         if self.adata_niche_subsample is None:
             self.adata_niche_subsample = self.adata_niche.copy()
@@ -316,7 +352,7 @@ class QUICHE(BaseEstimator):
             solver to use for differential analysis
 
         Returns
-        -------
+        ----------
         mdata: MuData
             annotated data object after differential analysis.
         """
@@ -353,8 +389,16 @@ class QUICHE(BaseEstimator):
             number of tasks for parallelization
 
         Returns
-        -------
+        ----------
         None
+
+        Example usage
+        ----------
+        # annotate niche neighborhoods by the top 3 most abundant cell types using the niche similarity graph
+        quiche_op.annotate_niches(nlargest = 3, annotation_scheme = 'neighborhood', annotation_key = 'quiche_niche_neighborhood')
+
+        # annotate niche neighborhoods by the top 5 most abundant cell types using the fov
+        quiche_op.annotate_niches(nlargest = 5, annotation_scheme = 'fov', annotation_key = 'quiche_niche_fov')
         """
         if self.mdata is None:
             raise RuntimeError("Differential enrichment testing has not been performed. call 'differential_enrichment' first.")
@@ -402,7 +446,7 @@ class QUICHE(BaseEstimator):
             number of tasks for parallelization
 
         Returns
-        -------
+        ----------
         annotations : list
             list of annotation strings for each niche.
         """
@@ -450,7 +494,7 @@ class QUICHE(BaseEstimator):
             number of tasks for parallelization
 
         Returns
-        -------
+        ----------
         annotations : list
             List of annotation strings for each niche.
         """
@@ -479,101 +523,113 @@ class QUICHE(BaseEstimator):
         markers: Optional[List[str]] = None,
         n_jobs: int = -1
     ):
-            """
-            Computes functional expression of cell types within specified niches.
+        """
+        Computes functional expression of cell types within specified niches.
 
-            Parameters
-            ----------
-            niches: list or None (default = None)
-                list of niches of interest
-            annotation_key: str (default = 'quiche_niche_neighborhood')
-                string specifying the column in mdata with labeled niche neighborhoods
-            min_cell_threshold: int (default = 3)
-                minimum number of nearest neighbors in a niche to for expression analysis to be considered
-            foldchange_key: str (default = 'logFC')
-                column in mdata['quiche'].var with predicted log fold change values
-            markers: list of str or None (default = None)
-                list of functional markers to include in expression analysis. if None, will use all
-            n_jobs: int (default = -1)
-                number of tasks for parallelization
+        Parameters
+        ----------
+        niches: list or None (default = None)
+            list of niches of interest
+        annotation_key: str (default = 'quiche_niche_neighborhood')
+            string specifying the column in mdata with labeled niche neighborhoods
+        min_cell_threshold: int (default = 3)
+            minimum number of nearest neighbors in a niche to for expression analysis to be considered
+        foldchange_key: str (default = 'logFC')
+            column in mdata['quiche'].var with predicted log fold change values
+        markers: list of str or None (default = None)
+            list of functional markers to include in expression analysis. if None, will use all
+        n_jobs: int (default = -1)
+            number of tasks for parallelization
 
-            Returns
-            -------
-            None
-            """
-            if self.mdata is None:
-                raise RuntimeError("Differential enrichment testing has not been performed. call 'differential_enrichment' first.")
-            
-            if markers is None:
-                markers = self.mdata['expression'].var_names.tolist()
+        Returns
+        ----------
+        None
 
-            missing_markers = set(markers) - set(self.mdata['expression'].var_names)
-            if missing_markers:
-                raise ValueError(f"the following markers are not present in the data: {missing_markers}")
+        
+        Example usage
+        ----------
+        # compute the functional expression of cell types within outcome-associated niches 
+        functional_markers = ['PDL1', 'Ki67', 'GLUT1', 'CD45RO', 'CD69', 'PD1', 'CD57', 'TBET', 'TCF1', 'CD45RB', 'TIM3', 'IDO', 'LAG3', 'CD38', 'HLADR']
+        quiche_op.compute_functional_expression(niches = niches,
+                                                annotation_key = 'quiche_niche_neighborhood',
+                                                min_cell_threshold = 3,
+                                                foldchange_key = 'logFC',
+                                                markers = functional_markers,
+                                                n_jobs = 8)
+        """
+        if self.mdata is None:
+            raise RuntimeError("Differential enrichment testing has not been performed. call 'differential_enrichment' first.")
+        
+        if markers is None:
+            markers = self.mdata['expression'].var_names.tolist()
 
-            if niches is None:
-                raise ValueError("niches must be provided as a list of niches of interest.")
+        missing_markers = set(markers) - set(self.mdata['expression'].var_names)
+        if missing_markers:
+            raise ValueError(f"the following markers are not present in the data: {missing_markers}")
 
-            fov_obs_names = self.mdata['spatial_nhood'].obs_names
-            expression_obs_names = self.mdata['expression'].obs_names
-            idx = expression_obs_names.get_indexer(fov_obs_names)
-            conn_mat = self.mdata['expression'].obsp['spatial_connectivities'][idx, :]
+        if niches is None:
+            raise ValueError("niches must be provided as a list of niches of interest.")
 
-            quiche_var = self.mdata['quiche'].var
-            sig_bool = np.isin(quiche_var[annotation_key].values, niches)
-            conn_mat = conn_mat[sig_bool, :]
-            niche_list = quiche_var[annotation_key].values[sig_bool]
+        fov_obs_names = self.mdata['spatial_nhood'].obs_names
+        expression_obs_names = self.mdata['expression'].obs_names
+        idx = expression_obs_names.get_indexer(fov_obs_names)
+        conn_mat = self.mdata['expression'].obsp['spatial_connectivities'][idx, :]
 
-            if not isinstance(conn_mat, csr_matrix):
-                conn_mat = csr_matrix(conn_mat)
+        quiche_var = self.mdata['quiche'].var
+        sig_bool = np.isin(quiche_var[annotation_key].values, niches)
+        conn_mat = conn_mat[sig_bool, :]
+        niche_list = quiche_var[annotation_key].values[sig_bool]
 
-            nn_array = [conn_mat.indices[conn_mat.indptr[i]:conn_mat.indptr[i+1]] for i in range(conn_mat.shape[0])]
+        if not isinstance(conn_mat, csr_matrix):
+            conn_mat = csr_matrix(conn_mat)
 
-            labels = self.mdata['expression'].obs[self.labels_key].values
-            unique_cell_types = np.unique(labels)
-            cell_clusters_indices = {cell_type: set(np.where(labels == cell_type)[0]) for cell_type in unique_cell_types}
+        nn_array = [conn_mat.indices[conn_mat.indptr[i]:conn_mat.indptr[i+1]] for i in range(conn_mat.shape[0])]
 
-            segmentation_labels = self.mdata['expression'].obs[self.segmentation_label_key].values
-            fov_values = self.mdata['expression'].obs[self.fov_key].values
-            expression_data = self.mdata['expression'][:, markers].X
-            
-            if isinstance(expression_data, csr_matrix):
-                expression_data = expression_data.toarray()
+        labels = self.mdata['expression'].obs[self.labels_key].values
+        unique_cell_types = np.unique(labels)
+        cell_clusters_indices = {cell_type: set(np.where(labels == cell_type)[0]) for cell_type in unique_cell_types}
 
-            def process_niche(niche_idx):
-                niche = niche_list[niche_idx]
-                nn = nn_array[niche_idx]
-                cell_types = niche.split('__')
-                func_records = []
-                for cell_type in cell_types:
-                    cell_type_indices = cell_clusters_indices.get(cell_type, set())
-                    if not cell_type_indices:
-                        continue
-                    idx_cell_type_nn = list(set(nn).intersection(cell_type_indices))
-                    if len(idx_cell_type_nn) >= min_cell_threshold:
-                        exp = expression_data[idx_cell_type_nn, :]
-                        exp_df = pd.DataFrame(exp, columns=markers)
-                        exp_df[annotation_key] = niche
-                        exp_df[self.labels_key] = cell_type
-                        exp_df[self.segmentation_label_key] = segmentation_labels[idx_cell_type_nn]
-                        exp_df[f'{annotation_key}_cell_type'] = f"{niche}:{cell_type}"
-                        exp_df[self.fov_key] = fov_values[idx_cell_type_nn]
-                        func_records.append(exp_df)
-                return func_records
+        segmentation_labels = self.mdata['expression'].obs[self.segmentation_label_key].values
+        fov_values = self.mdata['expression'].obs[self.fov_key].values
+        expression_data = self.mdata['expression'][:, markers].X
+        
+        if isinstance(expression_data, csr_matrix):
+            expression_data = expression_data.toarray()
 
-            total_niches = len(nn_array)
+        def process_niche(niche_idx):
+            niche = niche_list[niche_idx]
+            nn = nn_array[niche_idx]
+            cell_types = niche.split('__')
+            func_records = []
+            for cell_type in cell_types:
+                cell_type_indices = cell_clusters_indices.get(cell_type, set())
+                if not cell_type_indices:
+                    continue
+                idx_cell_type_nn = list(set(nn).intersection(cell_type_indices))
+                if len(idx_cell_type_nn) >= min_cell_threshold:
+                    exp = expression_data[idx_cell_type_nn, :]
+                    exp_df = pd.DataFrame(exp, columns=markers)
+                    exp_df[annotation_key] = niche
+                    exp_df[self.labels_key] = cell_type
+                    exp_df[self.segmentation_label_key] = segmentation_labels[idx_cell_type_nn]
+                    exp_df[f'{annotation_key}_cell_type'] = f"{niche}:{cell_type}"
+                    exp_df[self.fov_key] = fov_values[idx_cell_type_nn]
+                    func_records.append(exp_df)
+            return func_records
 
-            with tqdm_joblib(tqdm(total=total_niches, desc="Computing Functional Expression")):
-                func_results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(total_niches))
+        total_niches = len(nn_array)
 
-            func_arr = [df for sublist in func_results for df in sublist]
+        with tqdm_joblib(tqdm(total=total_niches, desc="Computing Functional Expression")):
+            func_results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(total_niches))
 
-            if func_arr:
-                func_df = pd.concat(func_arr, ignore_index=True)
-            else:
-                func_df = pd.DataFrame(columns=markers + [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key])
+        func_arr = [df for sublist in func_results for df in sublist]
 
-            adata_func = anndata.AnnData(func_df.drop(columns = [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key]))
-            adata_func.obs = func_df.loc[:, [annotation_key, self.labels_key, f'{annotation_key}_cell_type', self.segmentation_label_key, self.fov_key]]
-            adata_func.obs = pd.merge(adata_func.obs, pd.DataFrame(self.mdata['quiche'].var.groupby([annotation_key])[foldchange_key].mean()), on = [annotation_key]) ##average logFC of the niche neighborhood
-            self.adata_func = adata_func
+        if func_arr:
+            func_df = pd.concat(func_arr, ignore_index=True)
+        else:
+            func_df = pd.DataFrame(columns=markers + [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key])
+
+        adata_func = anndata.AnnData(func_df.drop(columns = [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key]))
+        adata_func.obs = func_df.loc[:, [annotation_key, self.labels_key, f'{annotation_key}_cell_type', self.segmentation_label_key, self.fov_key]]
+        adata_func.obs = pd.merge(adata_func.obs, pd.DataFrame(self.mdata['quiche'].var.groupby([annotation_key])[foldchange_key].mean()), on = [annotation_key]) ##average logFC of the niche neighborhood
+        self.adata_func = adata_func

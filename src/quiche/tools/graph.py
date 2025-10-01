@@ -16,16 +16,16 @@ def get_igraph(W: np.ndarray = None,
     """Converts adjacency matrix into igraph object
 
     Parameters
+    ----------
     W: (default = None)
         adjacency matrix
     directed: bool (default = None)
         whether graph is directed or not
-    ----------
 
     Returns
+    ----------
     g: ig.Graph
         graph of adjacency matrix
-    ----------
     """
     sources, targets = W.nonzero()
     weights = W[sources, targets]
@@ -41,16 +41,18 @@ def get_igraph(W: np.ndarray = None,
 def heat_kernel(dist: np.ndarray = None,
                 radius: int = 3):
     """Transforms distances into weights using heat kernel
+
     Parameters
+    ----------
     dist: np.ndarray (default = None)
         distance matrix (dimensions = cells x k)
     radius: np.int (default = 3)
         defines the per-cell bandwidth parameter (distance to the radius nn)
-    ----------
+
     Returns
+    ----------
     s: np.ndarray
         array containing between cell similarity (dimensions = cells x k)
-    ----------
     """         
     sigma = dist[:, [radius]]  # per cell bandwidth parameter (distance to the radius nn)
     s = np.exp(-1 * (dist**2)/ (2.*sigma**2)) # -||x_i - x_j||^2 / 2*sigma_i**2
@@ -64,7 +66,9 @@ def construct_affinity(X: np.ndarray,
                         random_state: int = 0, 
                         n_jobs: int = -1):
     """Computes between cell affinity knn graph using heat kernel
+    
     Parameters
+    ----------
     X: np.ndarray (default = None)
         Data (dimensions = cells x features)
     k: int (default = None)
@@ -75,11 +79,11 @@ def construct_affinity(X: np.ndarray,
         number of principal components to compute pairwise Euclidean distances for between-cell affinity graph construction. If None, uses adata.X
     n_jobs: int (default = -1)
         Number of tasks  
-    ----------
+
     Returns
+    ----------
     W: np.ndarray
         sparse symmetric matrix containing between cell similarity (dimensions = cells x cells)
-    ----------
     """
     if n_pcs is not None:
         n_comp = min(n_pcs, X.shape[1])
@@ -117,6 +121,7 @@ def spatial_niches_khop(adata: anndata.AnnData,
     """Computes niches according to khop spatial neighborhood
 
     Parameters
+    ----------
     adata: anndata.AnnData (default = None)
         annotated data object containing preprocessed single-cell data 
     radius: int (default = 200)
@@ -137,14 +142,13 @@ def spatial_niches_khop(adata: anndata.AnnData,
         integer referring to the number of nearest neighbors for a niche cell type proportion vector to be considered
     n_jobs: int (default = -1)
         number of tasks for parallelization
-    ----------
 
     Returns
+    ----------
     niche_df: pd.DataFrame
         dataframe containing niches (dimensions = niche x cell type)
     nn_dict: dictionary
         dictionary containing nearest neighbor information
-    ----------
     """
     niche_df = []
     cells2remove = []
@@ -185,18 +189,18 @@ def construct_niche_similarity_graph(adata: anndata.AnnData,
     """Constructs niche similarity graph
 
     Parameters
+    ----------
     adata: anndata.AnnData (default = None)
         annotated data object containing preprocessed single-cell data 
     k: int (default = 10)
         number of nearest neighbors in niche similarity graph construction
     n_jobs: int (default = -1)
         number of tasks for parallelization
-    ----------
 
     Returns
+    ----------
     adata: anndata.AnnData
         annotated data object containing niche similarity graph
-    ----------
     """
     nn = NearestNeighbors(n_neighbors = k, algorithm = 'kd_tree', n_jobs = n_jobs).fit(adata.X)
     connectivities = nn.kneighbors_graph(mode = 'connectivity')
@@ -242,6 +246,7 @@ def bound_radius(adata: anndata.AnnData,
     """Bounds spatial similarity by a fixed pixel radius
 
     Parameters
+    ----------
     adata: anndata.AnnData (default = None)
         annotated data object containing preprocessed single-cell data 
     distances_key: str (default = 'spatial_distances')
@@ -250,12 +255,11 @@ def bound_radius(adata: anndata.AnnData,
         string referring to connectivities matrix in adata.obsp
     radius: int (default = 200)
         integer referring to the number of pixels for bounding
-    ----------
 
     Returns
+    ----------
     adata: anndata.AnnData
         annotated data object
-    ----------
     """
     dist_mat = adata.obsp[distances_key]
     connect_mat = adata.obsp[connectivities_key]
@@ -275,6 +279,7 @@ def compute_spatial_neighbors(adata: anndata.AnnData,
     """Computes spatial proximity graph according to knn, delaunay, radius
 
     Parameters
+    ----------
     adata: anndata.AnnData (default = None)
         annotated data object containing preprocessed single-cell data 
     radius: int (default = 200)
@@ -289,12 +294,11 @@ def compute_spatial_neighbors(adata: anndata.AnnData,
         string in adata.obs containing sample-level annotations. Niches are defined locally in each ample
     coord_type: str (default = 'generic')
         string referring to spatial layout
-    ----------
 
     Returns
+    ----------
     adata: anndata.AnnData
         annotated data object containing spatial proximity graph
-    ----------
     """
     adata.obs[fov_key] = pd.Categorical(adata.obs[fov_key])
     if n_neighbors is not None:
@@ -315,6 +319,7 @@ def compute_niche_network(niche_df: pd.DataFrame,
     """Computes niche network. Cell types are connected to one another according to the number of unique patients with corresponding interaction
 
     Parameters
+    ----------
     niche_df: pd.DataFrame (default = None)
         dataframe containing niche-level metadata 
     colors_dict: dictionary (default = None)
@@ -323,12 +328,11 @@ def compute_niche_network(niche_df: pd.DataFrame,
         dictionary containing lineage colors
     annotation_key: str (default = 'quiche_niche_neighborhood')
         string referring to the column in niche_df with niche annotations
-    ----------
 
     Returns
+    ----------
     G: nx.Graph
         networkx graph containing cell type interactions 
-    ----------
     """
     node_dict = {}
     for index, row in niche_df.iterrows():
@@ -374,14 +378,14 @@ def compute_niche_network_centrality(G):
     """Computes centrality information for niche network graph
 
     Parameters
+    ----------
     G: nx.Graph (default = None)
         niche network graph
-    ----------
 
     Returns
+    ----------
     niche_df: pd.DataFrame
         dataframe containing betweenness and eigenvector centrality
-    ----------
     """
     eigen_cent = nx.eigenvector_centrality(G, weight = 'weight')
     eigen_cent = pd.DataFrame(eigen_cent, index = ['value']).transpose()

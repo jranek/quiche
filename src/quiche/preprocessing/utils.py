@@ -18,7 +18,7 @@ def make_directory(directory: str = None):
         A string specifying the directory path
 
     Returns
-    -------
+    ----------
     """
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -27,14 +27,14 @@ def standardize(x: np.ndarray):
     """Standardizes data by removing the mean and scaling to unit variance.
 
     Parameters
+    ----------
     x: pd.DataFrame (default = None)
         data matrix (dimensions = cells x features)
-    ----------
 
     Returns
+    ----------
     X: pd.DataFrame
         standardized data matrix (dimensions = cells x features)
-    ----------
     """
     scaler = StandardScaler(with_mean = True, with_std = True)
     X = scaler.fit_transform(x)
@@ -51,11 +51,14 @@ def compute_percentile(df: pd.DataFrame,
 def create_single_positive_table(marker_vals: pd.DataFrame,
                                  threshold_list: Dict):
     """ Determine whether a cell is positive for a marker based on the provided threshold.
-    Args:
+
+    Parameters
+    ----------
         marker_vals (pd.DataFrame): dataframe containing the marker intensity values
         threshold_list (list): list of functional markers and their pre-determined thresholds
 
-    Returns:
+    Returns
+    ----------
         pd.DataFrame:
             contains the marker intensities as well as the single positive marker data
     """
@@ -71,18 +74,18 @@ def filter_fovs(adata: anndata.AnnData,
     """Filters samples according to the number of cells/niches specifed.
 
     Parameters
+    ----------
     adata: (default = None)
         anndata object
     patient_key: str 
         string indicating filtering key
     threshold: int
         integer referring to the minimum number of niches per sample
-    ----------
 
     Returns
+    ----------
     adata:
         filtered anndata object
-    ----------
     """
     n_niches = adata.obs[patient_key].value_counts(sort=False)
     adata = adata[~np.isin(adata.obs[patient_key], n_niches[n_niches < threshold].index)]   
@@ -97,7 +100,8 @@ def download_data(id: str = 'nt_preprocessed',
     """
     Downloads data from the Zenodo repository
     
-    Parameters:
+    Parameters
+    ----------
         id: str (default = 'nt_preprocessed')
             string specifying the data identifier
         base_url: str (default = https://zenodo.org/records/14290163/files)

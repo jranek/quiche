@@ -97,7 +97,7 @@ def plot_niches(quiche_op,
         dots per inch for the saved figure
 
     Returns
-    -------
+    ----------
     None
     """
     plt.style.use(style)
@@ -267,7 +267,7 @@ def plot_niche_scores(quiche_op,
         dots per inch for the saved figure
 
     Returns
-    -------
+    ----------
     None
     """
     plt.style.use(style)
@@ -423,7 +423,7 @@ def beeswarm(quiche_op,
         string specifying filename for saving. If None and save_directory is specified, will save as 'beeswarm'
 
     Returns
-    -------
+    ----------
     None
     """
     sns.set_style('ticks')
@@ -607,8 +607,25 @@ def beeswarm_proportion(quiche_op,
             string specifying filename for saving. If None and save_directory is specified, will save as 'beeswarm'
 
         Returns
-        -------
+        ----------
         None
+
+        Example usage
+        ----------
+        qu.pl.beeswarm_proportion(quiche_op,
+                                niche_metadata = niche_metadata,
+                                niches = niches,
+                                xlim = [-3,3],
+                                xlim_proportion = [-0.3, 0.3],
+                                logfc_key = 'logFC',
+                                pvalue_key = 'SpatialFDR',
+                                annotation_key = 'quiche_niche_neighborhood',
+                                condition_key = 'Relapse',
+                                figsize = (6, 12),
+                                fontsize = 10,
+                                colors_dict = {'0': '#377eb8', '1': '#e41a1c'},
+                                save_directory = None,
+                                filename_save = None)
         """
         sns.set_style('ticks')
         if not hasattr(quiche_op, 'mdata'):
@@ -840,8 +857,43 @@ def plot_niche_network_donut(G: nx.Graph,
         colorbar label indicating what the edge weights represent
 
     Returns
-    -------
+    ----------
     None
+
+    Example usage
+    ----------
+    colors_dict = {'myeloid':'#4DCCBD', 'lymphoid':'#279AF1', 'tumor':'#FF8484', 'structural':'#F9DC5C'}
+
+    lineage_dict = {'APC':'myeloid', 'B':'lymphoid', 'CAF': 'structural', 'CD4T': 'lymphoid', 'CD8T': 'lymphoid',
+                    'CD68_Mac': 'myeloid', 'CD163_Mac': 'myeloid', 'Cancer_1': 'tumor', 'Cancer_2': 'tumor', 'Cancer_3': 'tumor',
+                    'Endothelium':'structural', 'Fibroblast': 'structural', 'Mac_Other': 'myeloid', 'Mast':'myeloid', 'Monocyte':'myeloid',
+                    'NK':'lymphoid', 'Neutrophil':'myeloid', 'Smooth_Muscle':'structural', 'T_Other':'lymphoid', 'Treg':'lymphoid'}
+
+    cell_ordering = ['Cancer_1', 'Cancer_2', 'Cancer_3', 'CD4T', 'CD8T', 'Treg', 'T_Other', 'B', 
+                    'NK', 'CD68_Mac', 'CD163_Mac', 'Mac_Other', 'Monocyte', 'APC','Mast', 'Neutrophil',
+                    'CAF', 'Fibroblast', 'Smooth_Muscle', 'Endothelium']
+
+    ## niche network for patients that did not relapse, ie logFC < 0
+
+    niche_metadata_neg = niche_metadata[(niche_metadata['mean_logFC'] < 0) & (niche_metadata['n_patients_niche'] > 1)]
+
+    G1 = qu.tl.compute_niche_network(niche_df = niche_metadata_neg,
+                            colors_dict = colors_dict,
+                            lineage_dict = lineage_dict,
+                            annotation_key = 'quiche_niche_neighborhood')
+
+    qu.pl.plot_niche_network_donut(G = G1,
+                                figsize=(6, 6),
+                                node_order = cell_ordering,
+                                centrality_measure = 'eigenvector',
+                                colors_dict = colors_dict,
+                                lineage_dict=lineage_dict, 
+                                donut_radius_inner = 1.15,
+                                donut_radius_outer = 1.25,
+                                edge_cmap = 'bone_r',
+                                edge_label = 'Patients',
+                                save_directory=None,
+                                filename_save=None)
     """
     try:
         edge_cmap = cm.get_cmap(edge_cmap)
@@ -1069,7 +1121,7 @@ def plot_differential_expression(quiche_op,
         string specifying filename for saving. If None and save_directory is specified, will save as 'matrixplot'
 
     Returns
-    -------
+    ----------
     None
     """    
     if not hasattr(quiche_op, 'adata_func'):
@@ -1167,7 +1219,7 @@ def plot_differential_cell_type_abundance(norm_counts: pd.DataFrame,
         number of columns in the subplot grid
 
     Returns
-    -------
+    ----------
     None
     """    
     cell_types = p_values_df[labels_key].tolist()

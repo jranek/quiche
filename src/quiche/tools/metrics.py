@@ -18,6 +18,7 @@ def compute_niche_composition(adata: anndata.AnnData,
     """Computes niches according to proportion of cell types within spatial proximity
 
     Parameters
+    ----------
     adata: anndata.AnnData (default = None)
         annotated data object containing preprocessed single-cell data 
     connectivities_key: str (default = 'spatial_connectivities')
@@ -26,14 +27,13 @@ def compute_niche_composition(adata: anndata.AnnData,
         string referring to the column in adata.obs that contains cell phenotype labels
     min_cells: int (default = 3)
         integer referring to the number of nearest neighbors for a niche cell type proportion vector to be considered
-    ----------
 
     Returns
+    ----------
     adata_niche: anndata.AnnData
         annotated data object containing niche-level information (dimensions = cells x cell types)
     cells_nonn: list
         list of cells that don't pass min threshold cutoff
-    ----------
     """
     connectivities = adata.obsp[connectivities_key].tocsr()
     connectivities.data = np.ones_like(connectivities.data)
@@ -75,7 +75,7 @@ def compute_niche_metadata(quiche_op,
     """
     Computes niche-level metadata.
 
-    Parameters:
+    Parameters
     ----------
     quiche_op 
         quiche class after fitting the model
@@ -94,10 +94,21 @@ def compute_niche_metadata(quiche_op,
     metrics: list (default = ['logFC', 'SpatialFDR', 'PValue'])
         list of metric columns in mdata['quiche'].var to be summarized
 
-    Returns:
+    Returns
     -------
     niche_df: pd.DataFrame
         dataframe containing computed niche proportions and related statistics.
+
+    Example usage
+    ----------
+    # filter niches by median logFC < -1 or logFC > 1 and median spatialFDR < 0.05
+    niche_metadata = qu.tl.compute_niche_metadata(quiche_op,
+                                                niches = niches,
+                                                annotation_key = 'quiche_niche_neighborhood',
+                                                patient_key = 'Patient_ID',
+                                                condition_key = 'Relapse',
+                                                condition_type  = 'binary',
+                                                metrics = ['logFC', 'SpatialFDR', 'PValue'])
     """
     mdata = quiche_op.mdata
 
@@ -160,6 +171,7 @@ def filter_niches(quiche_op,
     """Filters signficiant niche neighborhoods
 
     Parameters
+    ----------
     quiche_op 
         quiche class after fitting the model
     thresholds: dictionary (default = {'logFC': {'median' : [-0.5, 0.5]}, 'SpatialFDR': {'median' : 0.05}})
@@ -168,12 +180,19 @@ def filter_niches(quiche_op,
         minimum number of niche neighborhoods per group to be considered
     annotation_key: str (default = 'quiche_niche_neighborhood')
         string referring to the column in mdata['quiche'].var containing niche neighborhood labels
-    ----------
 
     Returns
+    ----------
     scores_df: pd.DataFrame
         dataframe containing filtered annotated niche groups with metrics
+
+    Example usage
     ----------
+    # filter niches by median logFC < -1 or logFC > 1 and median spatialFDR < 0.05
+    niche_scores = qu.tl.filter_niches(quiche_op,
+                                        thresholds = {'logFC': {'median' : [-1, 1]}, 'SpatialFDR': {'median' : 0.05}},
+                                        min_niche_count = 5,
+                                        annotation_key = 'quiche_niche_neighborhood')
     """
     mdata = quiche_op.mdata
     agg_dict = {metric: list(stat_dict.keys())[0] for metric, stat_dict in thresholds.items()}
@@ -207,6 +226,7 @@ def run_milo(adata: anndata.AnnData,
     """Performs differential cell type abundance analysis using Milo: https://www.nature.com/articles/s41587-021-01033-z, https://pertpy.readthedocs.io/en/latest/usage/tools/pertpy.tools.Milo.html
 
     Parameters
+    ----------
     adata: anndata.AnnData (default = None)
         annotated data object containing preprocessed single-cell data 
     n_neighbors: int (default = 10)
@@ -225,12 +245,11 @@ def run_milo(adata: anndata.AnnData,
         threshold for significance
     prop: float (default = 0.1)
         float for downsampling
-    ----------
 
     Returns
+    ----------
     mdata: mudata object
         annotated data object containing cell type abundance analysis
-    ----------
     """
     milo = pt.tl.Milo()
     mdata = milo.load(adata)
