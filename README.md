@@ -16,33 +16,55 @@ This repo is currently under development as we are in the process of porting ove
 You can download all of the preprocessed MIBI-TOF datasets (`.h5ad` files) from the [Zenodo](https://zenodo.org/records/14290163) repository. Imaging data and cell segmentation masks can be found in the [BioStudies](https://www.ebi.ac.uk/biostudies/bioimages/studies/S-BIAD1507) repository. 
 
 ## Installation
-You can clone the git repository by, 
+Supported Python versions: **3.10, 3.11, 3.12**.
+
+You can clone the git repository by,
 ```
 git clone https://github.com/jranek/quiche.git
 ```
-Then change the working directory as, 
+Then change the working directory as,
 ```
 cd quiche
 ```
 
-For installation, we recommend that you create a conda environment using the provided yml file.
+### Option 1: pip (recommended for Python-only workflows)
+Install core dependencies:
+```bash
+pip install .
+```
+
+Install optional extras:
+```bash
+# plotting helpers
+pip install .[plot]
+
+# full spatial/omics stack (scanpy/squidpy/pertpy/muon/sketchKH)
+pip install .[full]
+
+# development + test tooling
+pip install .[dev]
+```
+
+### Option 2: conda (recommended for R/edgeR workflows)
+Create the conda environment using the provided YAML file:
 
 ```
 conda env create -f venv_quiche.yml
 ```
 
-Once the environment is created, you can activate it by,
+Once the environment is created, activate it:
 ```
 conda activate venv_quiche
 ```
 
-In order to perform spatial enrichment analysis with QUICHE, you'll also need to install the necessary R packages. To do so, first open R in the terminal with the activated environment as, 
+The conda file includes the required R runtime and bridge packages (`r-base`, `rpy2`, `r-matrix`, `r-locfit`, `r-statmod`).
 
+If you need to install `edgeR` in that activated conda environment, open R:
 ```
 R
 ```
 
-Then install the packages as, 
+Then install:
 
 ```R
 if (!require("BiocManager", quietly = TRUE))
@@ -54,6 +76,15 @@ install.packages('statmod')
 #edger v3.40.2
 BiocManager::install("edgeR")
 ```
+
+### Quick smoke test
+```bash
+pytest tests/test_quiche_smoke.py -q
+```
+
+## Known limitations
+- Differential enrichment paths that use edgeR/pertpy require optional heavy dependencies (`.[full]`) and, for edgeR-based workflows, a working R setup.
+- `pip install .` intentionally does not install R/Rpy2 dependencies; use the conda environment when R-backed analysis is required.
 
 ## Example usage
 In the subsections below, we will walk through a simple example of how you can use QUICHE. For a more detailed tutorial, including the necessary plotting functions, please see the demo Jupyter notebook [here](https://github.com/jranek/quiche/blob/main/notebooks/demo.ipynb). 
@@ -105,4 +136,3 @@ quiche_op.annotate_niches(nlargest = 3, annotation_scheme = 'neighborhood', anno
 
 ## License
 This software is licensed under the MIT license (https://opensource.org/licenses/MIT).
-
