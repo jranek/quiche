@@ -1,15 +1,34 @@
+from __future__ import annotations
+
+import logging
+from itertools import combinations
+from typing import Dict, Optional
+
+import anndata
 import numpy as np
 import pandas as pd
-import igraph as ig
 import scipy
-from sklearn.neighbors import NearestNeighbors
-from sklearn.decomposition import PCA
-import anndata
-import squidpy as sq
-import logging
 import networkx as nx
-from itertools import combinations
-from typing import Union, Optional, Dict
+from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
+
+try:
+    import igraph as ig
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    ig = None
+
+try:
+    import squidpy as sq
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    sq = None
+
+
+def _require_dependency(dep, name: str):
+    if dep is None:
+        raise ImportError(
+            f"Optional dependency '{name}' is required for this method. "
+            "Install quiche with the [full] extra."
+        )
 
 def get_igraph(W: np.ndarray = None,
                directed: bool = None):
@@ -27,6 +46,7 @@ def get_igraph(W: np.ndarray = None,
     g: ig.Graph
         graph of adjacency matrix
     """
+    _require_dependency(ig, "python-igraph")
     sources, targets = W.nonzero()
     weights = W[sources, targets]
     if type(weights) == np.matrix:
@@ -46,7 +66,7 @@ def heat_kernel(dist: np.ndarray = None,
     ----------
     dist: np.ndarray (default = None)
         distance matrix (dimensions = cells x k)
-    radius: np.int (default = 3)
+    radius: int (default = 3)
         defines the per-cell bandwidth parameter (distance to the radius nn)
 
     Returns
@@ -173,10 +193,13 @@ def spatial_niches_khop(adata: anndata.AnnData,
                     niche_df_fov = pd.concat([niche_df_fov, niche_df_fov_], axis = 0)
             niche_df_fov.index = adata_fov.obs_names[~np.isin(adata_fov.obs_names, cells2remove)]
             niche_df.append(niche_df_fov)
-    try:
-        cells2remove = np.concatenate(cells2remove)    
-    except:
-        pass
+    flattened_cells2remove = []
+    for cell in cells2remove:
+        if isinstance(cell, (list, tuple, np.ndarray, pd.Index)):
+            flattened_cells2remove.extend(list(cell))
+        else:
+            flattened_cells2remove.append(cell)
+    cells2remove = np.array(flattened_cells2remove, dtype=object)
     niche_df = pd.concat(niche_df, axis = 0)
     niche_df = niche_df.fillna(0).copy()
     niche_df = niche_df.loc[adata.obs_names[~np.isin(adata.obs_names, list(set(cells2remove)))]]
@@ -300,11 +323,12 @@ def compute_spatial_neighbors(adata: anndata.AnnData,
     adata: anndata.AnnData
         annotated data object containing spatial proximity graph
     """
+    _require_dependency(sq, "squidpy")
     adata.obs[fov_key] = pd.Categorical(adata.obs[fov_key])
     if n_neighbors is not None:
         sq.gr.spatial_neighbors(adata, spatial_key = spatial_key, library_key = fov_key, n_neighs = n_neighbors, coord_type = coord_type)
         adata = bound_radius(adata, distances_key = 'spatial_distances', connectivities_key = 'spatial_connectivities', radius = radius)
-    elif delaunay == True:
+    elif delaunay:
         sq.gr.spatial_neighbors(adata, spatial_key = spatial_key, library_key = fov_key, delaunay = delaunay, coord_type = coord_type)
         adata = bound_radius(adata, distances_key = 'spatial_distances', connectivities_key = 'spatial_connectivities', radius = radius)
     else:

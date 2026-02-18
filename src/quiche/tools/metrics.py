@@ -1,15 +1,35 @@
-import pandas as pd
-import numpy as np
-import quiche as qu
-from sketchKH import sketch
 import anndata
-from muon import MuData
-import pertpy as pt
-import scanpy as sc
+import numpy as np
+import pandas as pd
+import quiche as qu
+from typing import Dict, List, Optional, Union
+
 from scipy.sparse import csr_matrix
-from statsmodels.stats.multitest import multipletests
 from scipy.stats import ranksums, spearmanr
-from typing import Union, Optional, Dict, List
+from statsmodels.stats.multitest import multipletests
+
+try:
+    from muon import MuData
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    MuData = None
+
+try:
+    import pertpy as pt
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    pt = None
+
+try:
+    import scanpy as sc
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    sc = None
+
+
+def _require_dependency(dep, name: str):
+    if dep is None:
+        raise ImportError(
+            f"Optional dependency '{name}' is required for this method. "
+            "Install quiche with the [full] extra."
+        )
 
 def compute_niche_composition(adata: anndata.AnnData,
                                 connectivities_key: str = 'spatial_connectivities',
@@ -71,7 +91,7 @@ def compute_niche_metadata(quiche_op,
                            condition_key: str = 'condition',
                            niche_threshold: int = 3,
                            condition_type: str = 'binary',
-                           metrics: Optional[List[str]] = ['logFC', 'SpatialFDR', 'PValue']):
+                           metrics: Optional[List[str]] = None):
     """
     Computes niche-level metadata.
 
@@ -111,6 +131,8 @@ def compute_niche_metadata(quiche_op,
                                                 metrics = ['logFC', 'SpatialFDR', 'PValue'])
     """
     mdata = quiche_op.mdata
+    if metrics is None:
+        metrics = ['logFC', 'SpatialFDR', 'PValue']
 
     for col in metrics:
         if col not in mdata['quiche'].var.columns:
@@ -251,6 +273,9 @@ def run_milo(adata: anndata.AnnData,
     mdata: mudata object
         annotated data object containing cell type abundance analysis
     """
+    _require_dependency(pt, "pertpy")
+    _require_dependency(sc, "scanpy")
+    _require_dependency(MuData, "muon")
     milo = pt.tl.Milo()
     mdata = milo.load(adata)
     sc.tl.pca(mdata[feature_key])
