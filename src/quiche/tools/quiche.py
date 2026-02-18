@@ -1,21 +1,48 @@
-import pertpy as pt
-import pandas as pd
-import numpy as np
-from scipy.sparse import csr_matrix
-import anndata
-import quiche as qu
-from sketchKH import sketch
 import logging
-from muon import MuData
+from contextlib import nullcontext
+from typing import List, Optional, Union
+
+import anndata
+import numpy as np
+import pandas as pd
+import quiche as qu
 from joblib import Parallel, delayed
 from numba import njit
-from sklearn.base import BaseEstimator
 from pandas.api.types import is_numeric_dtype
-from tqdm_joblib import tqdm_joblib
+from scipy.sparse import csr_matrix
+from sklearn.base import BaseEstimator
 from tqdm import tqdm
-from typing import List, Optional, Union
+
+try:
+    import pertpy as pt
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    pt = None
+
+try:
+    from muon import MuData
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    MuData = None
+
+try:
+    from sketchKH import sketch
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    sketch = None
+
+try:
+    from tqdm_joblib import tqdm_joblib
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    tqdm_joblib = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _require_dependency(dep, name: str):
+    if dep is None:
+        raise ImportError(
+            f"Optional dependency '{name}' is required for this method. "
+            "Install quiche with the [full] extra."
+        )
 
 @njit
 def compute_avg_abundance(neighbor_indices, abundance_matrix):
@@ -190,11 +217,12 @@ class QUICHE(BaseEstimator):
         """
         logger.info('Computing spatial niches...')
         if khop is not None:
+            k_neighbors = 10 if n_neighbors is None else n_neighbors
             niche_df, _ = qu.tl.spatial_niches_khop(
                 self.adata,
                 radius = radius,
                 p = p,
-                n_neighbors = n_neighbors,
+                k = k_neighbors,
                 khop = khop,
                 min_cell_threshold = min_cell_threshold,
                 labels_key = self.labels_key,
@@ -221,9 +249,10 @@ class QUICHE(BaseEstimator):
                 min_cell_threshold = min_cell_threshold
             )
 
-        non_zero_indices = np.where(pd.DataFrame(self.adata_niche.X).sum(1) != 0)[0]
-        self.adata_niche = self.adata_niche[non_zero_indices, :].copy()
-        self.adata = self.adata[non_zero_indices, :].copy()
+        niche_totals = np.asarray(self.adata_niche.X.sum(axis=1)).ravel()
+        non_zero_mask = niche_totals != 0
+        self.adata_niche = self.adata_niche[non_zero_mask, :].copy()
+        self.adata = self.adata[self.adata_niche.obs_names, :].copy()
 
     def subsample(
         self,
@@ -265,6 +294,7 @@ class QUICHE(BaseEstimator):
             logger.info('Skipping distribution-focused downsampling.')
             self.adata_niche_subsample = self.adata_niche
         else:
+            _require_dependency(sketch, "sketchKH")
             logger.info('Performing distribution-focused downsampling...')
             _, self.adata_niche_subsample = sketch(
                 self.adata_niche,
@@ -329,6 +359,7 @@ class QUICHE(BaseEstimator):
             model_contrasts = model_contrasts,
             solver = solver
         )
+        _require_dependency(MuData, "muon")
         self.mdata = MuData({'expression': self.adata, 'spatial_nhood': self.mdata['spatial_nhood'], 'quiche': self.mdata['milo']})
         self.mdata['quiche'].var.loc[:, ['-log10(SpatialFDR)', '-log10(PValue)']] = -1*np.log10(self.mdata['quiche'].var.loc[:, ['SpatialFDR', 'PValue']]).values
         self.mdata['quiche'].var[self.mdata['spatial_nhood'].obs.columns] = self.mdata['spatial_nhood'].obs.values
@@ -356,6 +387,7 @@ class QUICHE(BaseEstimator):
         mdata: MuData
             annotated data object after differential analysis.
         """
+        _require_dependency(pt, "pertpy")
         milo = pt.tl.Milo()
         mdata = milo.load(self.adata_niche_subsample, feature_key='spatial_nhood')
         mdata['spatial_nhood'].uns["nhood_neighbors_key"] = None
@@ -422,10 +454,9 @@ class QUICHE(BaseEstimator):
         self.mdata['quiche'].var[annotation_key] = annotations
         self.mdata['spatial_nhood'].obs[annotation_key] = annotations
 
-        try:
-            self.mdata['quiche'].var[annotation_key].loc[np.isin(self.mdata['quiche'].var['index_cell'], self.cells_nonn)] = 'unidentified'
-        except:
-            pass
+        if self.cells_nonn is not None and 'index_cell' in self.mdata['quiche'].var.columns:
+            mask = np.isin(self.mdata['quiche'].var['index_cell'], self.cells_nonn)
+            self.mdata['quiche'].var.loc[mask, annotation_key] = 'unidentified'
 
     def compute_niche_abundance_neighborhood(
         self,
@@ -619,8 +650,11 @@ class QUICHE(BaseEstimator):
 
         total_niches = len(nn_array)
 
-        with tqdm_joblib(tqdm(total=total_niches, desc="Computing Functional Expression")):
+        progress = tqdm(total=total_niches, desc="Computing Functional Expression")
+        context_manager = tqdm_joblib(progress) if tqdm_joblib is not None else nullcontext()
+        with context_manager:
             func_results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(total_niches))
+        progress.close()
 
         func_arr = [df for sublist in func_results for df in sublist]
 

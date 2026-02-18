@@ -18,11 +18,16 @@ from typing import List, Union, Optional, Dict, Tuple
 from tqdm.auto import tqdm
 from skimage import io
 from skimage.segmentation import find_boundaries
-from matplotlib import cm, colors
+from matplotlib import cm
 from matplotlib.ticker import MaxNLocator
 import matplotlib.colors as mcolors
-import scanpy as sc
 import anndata
+
+try:
+    import scanpy as sc
+except ImportError:  # pragma: no cover - exercised in optional dependency environments
+    sc = None
+
 sns.set_style('ticks')
 
 def generate_colors(cmap: str = "viridis",
@@ -32,7 +37,7 @@ def generate_colors(cmap: str = "viridis",
     if not isinstance(n_colors, int) or (n_colors < 2) or (n_colors > 6):
         raise ValueError("n_colors must be an integer between 2 and 6")
     if isinstance(cmap, list):
-        colors = [scalar_mappable.to_rgba(color, alpha=alpha) for color in cmap]
+        colors = [mcolors.to_rgba(color, alpha=alpha) for color in cmap]
     else:
         scalar_mappable = ScalarMappable(cmap=cmap)
         colors = scalar_mappable.to_rgba(range(n_colors), alpha=alpha).tolist()
@@ -104,7 +109,7 @@ def plot_niches(quiche_op,
     if isinstance(segmentation_directory, str):
         segmentation_directory = pathlib.Path(segmentation_directory)
     if save_directory is None:
-       save_directory = pathlib.Path(os.path.join('figures', metric))
+       save_directory = pathlib.Path(os.path.join('figures', 'niche_masks'))
     elif isinstance(save_directory, str):
         save_directory = pathlib.Path(save_directory)
     if not save_directory.exists():
@@ -288,10 +293,9 @@ def plot_niche_scores(quiche_op,
     if not hasattr(quiche_op, 'mdata'):
         raise AttributeError("Must run quiche first.")
     
-    try:
-        quiche_op.mdata['spatial_nhood'].obs[metric] = quiche_op.mdata['quiche'].var[metric].values
-    except:
+    if metric not in quiche_op.mdata['quiche'].var.columns:
         raise KeyError(f"{metric} is not a valid metric.")
+    quiche_op.mdata['spatial_nhood'].obs[metric] = quiche_op.mdata['quiche'].var[metric].values
 
     subset_mdata = quiche_op.mdata['spatial_nhood'][quiche_op.mdata['spatial_nhood'].obs.loc[:, annotation_key] == niche]
     cell_type_list = niche.split('__')
@@ -440,10 +444,9 @@ def beeswarm(quiche_op,
     except KeyError:
         raise RuntimeError(f"'{annotation_key}' not defined in nhood_adata.obs.")
 
-    try:
-        nhood_adata = nhood_adata[np.isin(nhood_adata.obs[annotation_key], niches)]  # Subsets data by niches of interest
-    except:
+    if niches is None:
         raise RuntimeError('Specify a list of niches to plot.')
+    nhood_adata = nhood_adata[np.isin(nhood_adata.obs[annotation_key], niches)]  # Subsets data by niches of interest
 
     try:
         nhood_adata.obs[logfc_key]
@@ -639,21 +642,20 @@ def beeswarm_proportion(quiche_op,
         except KeyError:
             raise RuntimeError(f"{annotation_key} not defined")
 
-        try:
-            if niche_metadata is None:
-                niche_metadata = qu.tl.compute_niche_metadata(mdata,
-                                                niches = niches,
-                                                annotation_key =annotation_key,
-                                                patient_key = patient_key,
-                                                condition_key = condition_key,
-                                                niche_threshold = 0,
-                                                condition_type  = 'binary',
-                                                metrics = ['logFC'])
-            
-            niches = list(set(niches).intersection(set(niche_metadata[annotation_key].unique()))) #ensures niches are in metadata and pass niche_threshold
-            nhood_adata = nhood_adata[np.isin(nhood_adata.obs[annotation_key], niches)] #subsets data by niches of interest
-        except:
-             raise RuntimeError(f'Specify a list of niches to plot.')
+        if niches is None:
+            raise RuntimeError('Specify a list of niches to plot.')
+        if niche_metadata is None:
+            niche_metadata = qu.tl.compute_niche_metadata(quiche_op,
+                                            niches = niches,
+                                            annotation_key =annotation_key,
+                                            patient_key = patient_key,
+                                            condition_key = condition_key,
+                                            niche_threshold = 0,
+                                            condition_type  = 'binary',
+                                            metrics = ['logFC'])
+
+        niches = list(set(niches).intersection(set(niche_metadata[annotation_key].unique()))) #ensures niches are in metadata and pass niche_threshold
+        nhood_adata = nhood_adata[np.isin(nhood_adata.obs[annotation_key], niches)] #subsets data by niches of interest
         
         try:
             nhood_adata.obs[logfc_key]
@@ -897,7 +899,7 @@ def plot_niche_network_donut(G: nx.Graph,
     """
     try:
         edge_cmap = cm.get_cmap(edge_cmap)
-    except:
+    except ValueError:
         raise ValueError(f"{edge_cmap} is not a valid cmap.")
 
     if node_order is None:
@@ -1036,7 +1038,7 @@ def plot_niche_network_donut(G: nx.Graph,
             )
             ax.add_patch(wedge)
         
-        if label_lineages == True:
+        if label_lineages:
             lineage_angles = {}
             for lineage in unique_lineages:
                 lineage_node_angles = [angles_per_node[node] for node in node_order if G.nodes[node]['lineage'] == lineage]
@@ -1126,6 +1128,11 @@ def plot_differential_expression(quiche_op,
     """    
     if not hasattr(quiche_op, 'adata_func'):
         raise AttributeError("Must run quiche_op.compute_functional_expression first.")
+    if sc is None:
+        raise ImportError(
+            "scanpy is required for plot_differential_expression. "
+            "Install quiche with the [full] extra."
+        )
     
     if markers is None:
         markers = quiche_op.mdata['expression'].var_names
