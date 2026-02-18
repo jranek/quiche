@@ -12,6 +12,21 @@ QUICHE is a statistical differential abundance testing method that can be used t
 
 This repo is currently under development as we are in the process of porting over our existing code into this independent repository. In the meantime, you can access the code associated with the paper [here](https://github.com/angelolab/publications/tree/main/2024-Ranek_etal_QUICHE). 
 
+## Modernization summary (2026-02)
+The codebase has been modernized for current Python and packaging standards while preserving the public API (`quiche.pp`, `quiche.tl`, `quiche.pl`).
+
+- Python support updated to `3.10-3.12`.
+- Packaging metadata migrated to modern PEP 621 format in `pyproject.toml`.
+- Dependencies split into install extras:
+  - `.[plot]` for plotting dependencies
+  - `.[full]` for heavier spatial/omics workflows
+  - `.[dev]` for tests and development tooling
+- Optional heavy dependencies now fail with clear messages only when those specific workflows are used, instead of breaking base imports.
+- Compatibility fixes applied for older grammar-era patterns and runtime issues.
+- Automated tests and CI were added (GitHub Actions matrix for Python 3.10/3.11/3.12).
+
+For full migration details, see `docs/migration-python-modernization.md`.
+
 ## Data access
 You can download all of the preprocessed MIBI-TOF datasets (`.h5ad` files) from the [Zenodo](https://zenodo.org/records/14290163) repository. Imaging data and cell segmentation masks can be found in the [BioStudies](https://www.ebi.ac.uk/biostudies/bioimages/studies/S-BIAD1507) repository. 
 
