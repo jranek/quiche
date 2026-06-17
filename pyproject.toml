@@ -51,7 +51,6 @@ plot = [
 ]
 
 full = [
-  "muon>=0.1.7,<0.2",
   "pertpy",
   "scanpy>=1.8.1",
   "sketchKH>=0.1.2",
