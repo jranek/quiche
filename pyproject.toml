@@ -23,7 +23,6 @@ dependencies = [
   "pandas>=1.5,<2.3",
   "requests>=2.31,<3",
   "scikit-learn>=1.2,<1.8",
-  "scipy>=1.10,<1.16",
   "statsmodels>=0.12.2",
   "tqdm",
 ]
@@ -50,7 +49,6 @@ plot = [
   "seaborn>=0.12.2",
 ]
 
-
 full = [
   "scanpy>=1.8.1",
   "sketchKH>=0.1.2",
@@ -58,8 +56,8 @@ full = [
   "pertpy==0.6.0",
   "tqdm-joblib>=0.0.4,<0.1",
   "umap-learn>=0.5",
-  "jax>=0.4.13,<0.4.30",
-  "jaxlib>=0.4.13,<0.4.30",
+  "jax>=0.4.13,<0.4.29",
+  "jaxlib>=0.4.13,<0.4.29",
   "ott-jax==0.4.6",
   "flax",
   "chex",
