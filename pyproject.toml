@@ -51,7 +51,6 @@ plot = [
 ]
 
 full = [
-  "pertpy",
   "scanpy>=1.8.1",
   "sketchKH>=0.1.2",
   "squidpy>=1.6.1",
@@ -61,6 +60,7 @@ full = [
   "jaxlib>=0.4.18",
   "flax>=0.7.4",
   "chex>=0.1.8",
+  "pertpy",
 ]
 
 dev = [
