@@ -53,8 +53,8 @@ plot = [
 full = [
   "scanpy>=1.8.1",
   "sketchKH>=0.1.2",
-  "squidpy==1.6.1",
-  "pertpy==0.6.0",
+  "squidpy>=1.6.1,<2",
+  "pertpy>=0.9,<0.11",
   "tqdm-joblib>=0.0.4,<0.1",
   "jax",
   "jaxlib",
