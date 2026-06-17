@@ -20,6 +20,8 @@ def make_directory(directory: str = None):
     Returns
     ----------
     """
+    if directory is None:
+        raise ValueError("directory must be provided.")
     if not os.path.exists(directory):
         os.makedirs(directory)
 

@@ -7,6 +7,7 @@ import quiche as qu
 from sketchKH import sketch
 import logging
 from muon import MuData
+from contextlib import nullcontext
 from joblib import Parallel, delayed
 from numba import njit
 from sklearn.base import BaseEstimator
@@ -190,11 +191,12 @@ class QUICHE(BaseEstimator):
         """
         logger.info('Computing spatial niches...')
         if khop is not None:
+            k_neighbors = 10 if n_neighbors is None else n_neighbors
             niche_df, _ = qu.tl.spatial_niches_khop(
                 self.adata,
                 radius = radius,
                 p = p,
-                n_neighbors = n_neighbors,
+                k = k_neighbors,
                 khop = khop,
                 min_cell_threshold = min_cell_threshold,
                 labels_key = self.labels_key,
@@ -422,10 +424,9 @@ class QUICHE(BaseEstimator):
         self.mdata['quiche'].var[annotation_key] = annotations
         self.mdata['spatial_nhood'].obs[annotation_key] = annotations
 
-        try:
-            self.mdata['quiche'].var[annotation_key].loc[np.isin(self.mdata['quiche'].var['index_cell'], self.cells_nonn)] = 'unidentified'
-        except:
-            pass
+        if self.cells_nonn is not None and 'index_cell' in self.mdata['quiche'].var.columns:
+            mask = np.isin(self.mdata['quiche'].var['index_cell'], self.cells_nonn)
+            self.mdata['quiche'].var.loc[mask, annotation_key] = 'unidentified'
 
     def compute_niche_abundance_neighborhood(
         self,
@@ -619,8 +620,11 @@ class QUICHE(BaseEstimator):
 
         total_niches = len(nn_array)
 
-        with tqdm_joblib(tqdm(total=total_niches, desc="Computing Functional Expression")):
+        progress = tqdm(total=total_niches, desc="Computing Functional Expression")
+        context_manager = tqdm_joblib(progress) if tqdm_joblib is not None else nullcontext()
+        with context_manager:
             func_results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(total_niches))
+        progress.close()
 
         func_arr = [df for sublist in func_results for df in sublist]
 
@@ -632,4 +636,5 @@ class QUICHE(BaseEstimator):
         adata_func = anndata.AnnData(func_df.drop(columns = [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key]))
         adata_func.obs = func_df.loc[:, [annotation_key, self.labels_key, f'{annotation_key}_cell_type', self.segmentation_label_key, self.fov_key]]
         adata_func.obs = pd.merge(adata_func.obs, pd.DataFrame(self.mdata['quiche'].var.groupby([annotation_key])[foldchange_key].mean()), on = [annotation_key]) ##average logFC of the niche neighborhood
+
         self.adata_func = adata_func

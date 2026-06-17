@@ -28,7 +28,7 @@ dependencies:
     - shapely
     - numpy==1.23.4
     - pip:
-        - sketchKH==0.1.2
+        - sketchKH>=0.1.2
         - squidpy>=1.6.1
         - pertpy
         - flax==0.7.4

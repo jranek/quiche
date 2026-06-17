@@ -71,7 +71,7 @@ def compute_niche_metadata(quiche_op,
                            condition_key: str = 'condition',
                            niche_threshold: int = 3,
                            condition_type: str = 'binary',
-                           metrics: Optional[List[str]] = ['logFC', 'SpatialFDR', 'PValue']):
+                           metrics: Optional[List[str]] = None):
     """
     Computes niche-level metadata.
 
@@ -111,6 +111,9 @@ def compute_niche_metadata(quiche_op,
                                                 metrics = ['logFC', 'SpatialFDR', 'PValue'])
     """
     mdata = quiche_op.mdata
+
+    if metrics is None:
+        metrics = ['logFC', 'SpatialFDR', 'PValue']
 
     for col in metrics:
         if col not in mdata['quiche'].var.columns:

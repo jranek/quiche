@@ -46,7 +46,7 @@ def heat_kernel(dist: np.ndarray = None,
     ----------
     dist: np.ndarray (default = None)
         distance matrix (dimensions = cells x k)
-    radius: np.int (default = 3)
+    radius: int (default = 3)
         defines the per-cell bandwidth parameter (distance to the radius nn)
 
     Returns
@@ -173,10 +173,14 @@ def spatial_niches_khop(adata: anndata.AnnData,
                     niche_df_fov = pd.concat([niche_df_fov, niche_df_fov_], axis = 0)
             niche_df_fov.index = adata_fov.obs_names[~np.isin(adata_fov.obs_names, cells2remove)]
             niche_df.append(niche_df_fov)
-    try:
-        cells2remove = np.concatenate(cells2remove)    
-    except:
-        pass
+            
+    flattened_cells2remove = []
+    for cell in cells2remove:
+        if isinstance(cell, (list, tuple, np.ndarray, pd.Index)):
+            flattened_cells2remove.extend(list(cell))
+        else:
+            flattened_cells2remove.append(cell)
+    cells2remove = np.array(flattened_cells2remove, dtype=object)
     niche_df = pd.concat(niche_df, axis = 0)
     niche_df = niche_df.fillna(0).copy()
     niche_df = niche_df.loc[adata.obs_names[~np.isin(adata.obs_names, list(set(cells2remove)))]]

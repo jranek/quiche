@@ -32,7 +32,7 @@ def generate_colors(cmap: str = "viridis",
     if not isinstance(n_colors, int) or (n_colors < 2) or (n_colors > 6):
         raise ValueError("n_colors must be an integer between 2 and 6")
     if isinstance(cmap, list):
-        colors = [scalar_mappable.to_rgba(color, alpha=alpha) for color in cmap]
+        colors = [mcolors.to_rgba(color, alpha=alpha) for color in cmap]
     else:
         scalar_mappable = ScalarMappable(cmap=cmap)
         colors = scalar_mappable.to_rgba(range(n_colors), alpha=alpha).tolist()
@@ -104,7 +104,7 @@ def plot_niches(quiche_op,
     if isinstance(segmentation_directory, str):
         segmentation_directory = pathlib.Path(segmentation_directory)
     if save_directory is None:
-       save_directory = pathlib.Path(os.path.join('figures', metric))
+       save_directory = pathlib.Path(os.path.join('figures', 'niche_masks'))
     elif isinstance(save_directory, str):
         save_directory = pathlib.Path(save_directory)
     if not save_directory.exists():
