@@ -11,7 +11,7 @@ def test_construct_affinity_shape_and_symmetry():
     np.testing.assert_allclose((w - w.T).toarray(), np.zeros((10, 10)), atol=1e-8)
 
 def test_compute_spatial_neighbors(synthetic_adata):
-    synthetic_adata = graph.compute_spatial_neighbors(synthetic_adata)
+    synthetic_adata = graph.compute_spatial_neighbors(synthetic_adata, n_neighbors=2)
     assert 'spatial_connectivities' in synthetic_adata.obsp
     assert 'spatial_distances' in synthetic_adata.obsp
 
