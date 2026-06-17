@@ -53,7 +53,7 @@ plot = [
 full = [
   "scanpy>=1.8.1",
   "sketchKH>=0.1.2",
-  "squidpy>=1.6.1",
+  "squidpy==1.6.1",
   "pertpy==0.6.0",
   "tqdm-joblib>=0.0.4,<0.1",
   "umap-learn==0.5.1",
