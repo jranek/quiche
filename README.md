@@ -47,10 +47,7 @@ Then install the packages as,
 ```R
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
-
-#statmod v1.5.0
-install.packages('statmod')
-
+    
 #edger v3.40.2
 BiocManager::install("edgeR")
 ```
