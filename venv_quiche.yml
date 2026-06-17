@@ -1,17 +1,15 @@
 name: venv_quiche
 channels:
-    - bioconda
     - conda-forge
-    - defaults
+    - bioconda
 dependencies:
     - anndata>=0.7.6,<0.10.9
-    - umap-learn==0.5.1
-    - scikit-learn>=0.23.2
+    - scikit-learn>=1.2,<1.8
     - scikit-image>=0.19.2
-    - python>=3.7
+    - python>=3.9,<3.11
     - ipython
     - ipykernel
-    - networkx==2.7
+    - networkx>=3.1,<4
     - statsmodels>=0.12.2
     - scanpy>=1.8.1
     - seaborn>=0.12.2
@@ -22,16 +20,19 @@ dependencies:
     - r-matrix
     - r-locfit
     - r-statmod
+    - r-nlme
     - rpy2==3.5.11
-    - scipy==1.12.0
+    - scipy>=1.10,<1.13
     - shapely
-    - numpy==1.23.4
+    - numpy>=1.24,<2.2
     - pip:
         - sketchKH>=0.1.2
-        - squidpy>=1.6.1
-        - pertpy
-        - flax==0.7.4
-        - jax==0.4.13
-        - jaxlib==0.4.13
-        - chex==0.1.8
+        - squidpy==1.6.1
+        - pertpy==0.6.0
+        - jax>=0.4.13,<0.4.25
+        - jaxlib>=0.4.13,<0.4.25
+        - ott-jax==0.4.6,
+        - flax
+        - chex
+        - dask<2024.9
         - .
