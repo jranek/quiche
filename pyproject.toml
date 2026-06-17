@@ -58,7 +58,7 @@ full = [
   "tqdm-joblib>=0.0.4,<0.1",
   "umap-learn==0.5.1",
   "jax==0.4.13",
-  "jaxlib==0.4.13",
+  "jaxlib",
   "flax",
   "chex",
 ]
