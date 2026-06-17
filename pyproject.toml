@@ -57,10 +57,6 @@ full = [
   "pertpy==0.6.0",
   "tqdm-joblib>=0.0.4,<0.1",
   "umap-learn==0.5.1",
-  "flax==0.7.4",
-  "jax==0.4.13",
-  "jaxlib==0.4.13",
-  "chex==0.1.8",
 ]
 
 dev = [
