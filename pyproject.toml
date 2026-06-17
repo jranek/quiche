@@ -50,14 +50,21 @@ plot = [
   "seaborn>=0.12.2",
 ]
 
+
 full = [
   "scanpy>=1.8.1",
   "sketchKH>=0.1.2",
-  "squidpy>=1.6.1,<2",
-  "pertpy>=0.6",
+  "squidpy==1.6.1",
+  "pertpy==0.6.0",
   "tqdm-joblib>=0.0.4,<0.1",
+  "umap-learn>=0.5",
+  "jax>=0.4.13,<0.4.30",
+  "jaxlib>=0.4.13,<0.4.30",
+  "ott-jax==0.4.6",
+  "flax",
+  "chex",
+  "dask<2024.9",
 ]
-
 dev = [
   "build>=1.2,<2",
   "mypy>=1.11,<2",
