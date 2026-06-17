@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import igraph as ig
 import scipy
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
@@ -10,33 +9,6 @@ import logging
 import networkx as nx
 from itertools import combinations
 from typing import Union, Optional, Dict
-
-def get_igraph(W: np.ndarray = None,
-               directed: bool = None):
-    """Converts adjacency matrix into igraph object
-
-    Parameters
-    ----------
-    W: (default = None)
-        adjacency matrix
-    directed: bool (default = None)
-        whether graph is directed or not
-
-    Returns
-    ----------
-    g: ig.Graph
-        graph of adjacency matrix
-    """
-    sources, targets = W.nonzero()
-    weights = W[sources, targets]
-    if type(weights) == np.matrix:
-        weights = weights.A1 #flattens 
-    g = ig.Graph(directed = directed)
-    g.add_vertices(np.shape(W)[0])
-    g.add_edges(list(zip(sources, targets)))
-    g.es['weight'] = weights  
-
-    return g
 
 def heat_kernel(dist: np.ndarray = None,
                 radius: int = 3):
