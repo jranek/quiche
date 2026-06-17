@@ -23,6 +23,7 @@ dependencies = [
   "pandas>=1.5,<2.3",
   "requests>=2.31,<3",
   "scikit-learn>=1.2,<1.8",
+  "scipy>=1.10,<1.16",
   "statsmodels>=0.12.2",
   "tqdm",
 ]
@@ -55,9 +56,8 @@ full = [
   "squidpy==1.6.1",
   "pertpy==0.6.0",
   "tqdm-joblib>=0.0.4,<0.1",
-  "umap-learn==0.5.1",
-  "jax==0.10.1",
-  "jaxlib==0.10.1",
+  "jax",
+  "jaxlib",
   "flax",
   "chex",
 ]
