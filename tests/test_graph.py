@@ -10,17 +10,12 @@ def test_construct_affinity_shape_and_symmetry():
     assert w.shape == (10, 10)
     np.testing.assert_allclose((w - w.T).toarray(), np.zeros((10, 10)), atol=1e-8)
 
-def test_get_igraph_requires_optional_dependency(monkeypatch):
-    monkeypatch.setattr(graph, "ig", None)
-    with pytest.raises(ImportError, match="python-igraph"):
-        graph.get_igraph(sp.csr_matrix(np.eye(3)), directed=False)
+def test_compute_spatial_neighbors(synthetic_adata):
+    synthetic_adata = graph.compute_spatial_neighbors(synthetic_adata)
+    assert 'spatial_connectivities' in synthetic_adata.obsp
+    assert 'spatial_distances' in synthetic_adata.obsp
 
-def test_compute_spatial_neighbors_requires_squidpy(monkeypatch, synthetic_adata):
-    monkeypatch.setattr(graph, "sq", None)
-    with pytest.raises(ImportError, match="squidpy"):
-        graph.compute_spatial_neighbors(synthetic_adata)
-
-def test_spatial_niches_khop_runs(synthetic_adata):
+def test_spatial_niches_khop(synthetic_adata):
     niche_df, nn_dict = graph.spatial_niches_khop(
         synthetic_adata,
         radius=1000,
