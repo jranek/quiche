@@ -460,10 +460,15 @@ def beeswarm(quiche_op,
     anno_df["is_signif"] = anno_df[pvalue_key] < alpha
     anno_df = anno_df[anno_df[annotation_key] != "nan"]
 
-    cmap_df = pd.DataFrame(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean(), columns=[logfc_key])
-    cmap = np.full(np.shape(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean())[0], 'lightgrey', dtype='object')
-    cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() <= 0] = list(colors_dict.values())[0]
-    cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() > 0] = list(colors_dict.values())[1]
+    mean_logfc_by_niche = mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean()
+    mean_logfc_by_condition = mdata['quiche'].var.groupby(condition_key)[logfc_key].mean()
+    min_name = mean_logfc_by_condition.idxmin()
+    max_name = mean_logfc_by_condition.idxmax()
+
+    cmap_df = pd.DataFrame(mean_logfc_by_niche, columns=[logfc_key])
+    cmap = np.full(mean_logfc_by_niche.shape[0], 'lightgrey', dtype='object')
+    cmap[mean_logfc_by_niche <= 0] = colors_dict[min_name]
+    cmap[mean_logfc_by_niche > 0] = colors_dict[max_name]
 
     cmap_df['cmap'] = cmap
 
@@ -670,15 +675,20 @@ def beeswarm_proportion(quiche_op,
         anno_df = nhood_adata.obs[[annotation_key, logfc_key, pvalue_key]].copy()
         anno_df["is_signif"] = anno_df[pvalue_key] < alpha
         anno_df = anno_df[anno_df[annotation_key] != "nan"]
+        mean_logfc_by_niche = mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean()
+        mean_logfc_by_condition = mdata['quiche'].var.groupby(condition_key)[logfc_key].mean()
+        min_name = mean_logfc_by_condition.idxmin()
+        max_name = mean_logfc_by_condition.idxmax()
 
-        cmap_df = pd.DataFrame(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean(), columns = [logfc_key])
-        cmap = np.full(np.shape(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean())[0], 'lightgrey', dtype = 'object')
-        cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() <= 0] = list(colors_dict.values())[0]
-        cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() > 0] = list(colors_dict.values())[1]
+        cmap_df = pd.DataFrame(mean_logfc_by_niche, columns=[logfc_key])
+        cmap = np.full(mean_logfc_by_niche.shape[0], 'lightgrey', dtype='object')
+        cmap[mean_logfc_by_niche <= 0] = colors_dict[min_name]
+        cmap[mean_logfc_by_niche > 0] = colors_dict[max_name]
 
         cmap_df['cmap'] = cmap
+
         fig = plt.figure(figsize=figsize)
-        gs = GridSpec(1, 2, width_ratios=[1, 0.4])  # 2 columns with equal width
+        gs = GridSpec(1, 2, width_ratios=[1, 0.4]) 
 
         ax0 = plt.subplot(gs[0])
         ax1 = plt.subplot(gs[1])
