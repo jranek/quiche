@@ -3,13 +3,16 @@
 ## Unreleased
 
 ### Added
-- Thank you @tuhulab for providing the initial test suite.
-- Modern test suite under `tests/` for import smoke, preprocessing, graph, metrics, and QUICHE smoke workflows.
+- Added the ability to annotate all cells within the data.
+- Thank you @tuhulab for providing the initial test suite located under `tests/`.
 - GitHub Actions CI matrix.
 
 ### Changed
 - Support Python versions `3.9, 3.10`.
 - Updated conda environment accordingly. 
+- Modified `annotate_niches`, `plot_niches`, and `plot_niche_scores` to predict the annotations for cells not within the subsample.
+- Modified `plot_niche_scores` to include `vcenter`. 
+- Modified `compute_functional_expression` to accept predicted out of sample annotations. 
 
 ### Fixed
 - Followed PR by @tuhulab, thank you for finding some these errors. Will reserve PR for modernization workflows.
@@ -18,4 +21,4 @@
 - Fixed obs alignment bug when filtering niche results.
 - Fixed chained assignment in niche annotation path.
 - Fixed undefined variable use in plotting default output path.
-- Fixed `beeswarm` and `beeswarm_proportion` colors_dict order
+- Fixed `beeswarm` and `beeswarm_proportion` colors_dict order.

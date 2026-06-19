@@ -358,3 +358,42 @@ def differential_cell_type_abundance(adata: anndata.AnnData,
                                '-log10(Adj. p-value)': -np.log10(fdr_corrected)})
     
     return norm_counts, results_df
+
+def compute_niche_size(quiche_op, annotation_key = 'quiche_niche_neighborhood'):
+    niche_size = pd.DataFrame(pd.DataFrame(quiche_op.mdata['quiche'].var[[annotation_key]].values, columns = ['niche']).groupby('niche').size())
+    niche_size.reset_index(inplace = True)
+    niche_size.columns = ['niche', 'size']
+    return niche_size
+
+def compute_recall_metrics(quiche_op, niche_scores, n_largest = 3, annotation_key = 'quiche_niche_neighborhood', extrapolated_key =  'quiche_niche_neighborhood_extrapolated'):
+    niche_names = quiche_op.adata_niche.obs_names
+    subsample_niche_names = quiche_op.adata_niche_subsample.obs_names
+    rem_mask = ~niche_names.isin(subsample_niche_names) ##full not subsampled
+
+    conf = pd.DataFrame(quiche_op.adata_niche.obs[f'{extrapolated_key}_probability'])[rem_mask]
+    conf.loc[:, f'{extrapolated_key}'] = quiche_op.adata_niche.obs[f'{extrapolated_key}'][rem_mask]
+    df_prop = quiche_op.adata_niche.to_df()[rem_mask]
+    df_prop.loc[:, f'{extrapolated_key}'] =  quiche_op.adata_niche.obs[f'{extrapolated_key}'][rem_mask]
+    average_proportions = df_prop.groupby(f'{extrapolated_key}').mean()
+    average_conf = conf.groupby(f'{extrapolated_key}').mean()
+
+    results = []
+    for niche in average_proportions.index:
+        props = average_proportions.loc[niche]
+        ranked = props.sort_values(ascending=False)
+        top = set(ranked.head(n_largest).index)
+        label_parts = set(niche.split("__"))
+        recall_top = len(label_parts & top) / len(label_parts)
+        avg_confidence = average_conf.loc[niche, f'{extrapolated_key}_probability']
+        results.append({"niche": niche, 
+                        "top_recall": recall_top,
+                        f"avg_{extrapolated_key}_probability": avg_confidence,
+                        "top": ", ".join(ranked.head(n_largest).index)})
+
+    niche_size = compute_niche_size(quiche_op, annotation_key = annotation_key)
+
+    results = pd.DataFrame(results)
+    results = pd.merge(results, niche_size, on = 'niche')
+    results["significant"] = np.where(np.isin(results["niche"], niche_scores.index), "1", "0")
+    results["n_largest"] = n_largest
+    return results

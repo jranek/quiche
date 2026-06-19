@@ -23,6 +23,8 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.colors as mcolors
 import scanpy as sc
 import anndata
+from matplotlib.colors import TwoSlopeNorm
+
 sns.set_style('ticks')
 
 def generate_colors(cmap: str = "viridis",
@@ -118,7 +120,7 @@ def plot_niches(quiche_op,
     if not hasattr(quiche_op, 'mdata'):
         raise AttributeError("Must run quiche first.")
 
-    subset_mdata = quiche_op.mdata['spatial_nhood'][quiche_op.mdata['spatial_nhood'].obs.loc[:, annotation_key] == niche]
+    subset_mdata = quiche_op.adata_niche[quiche_op.adata_niche.obs.loc[:, annotation_key] == niche]
     cell_type_list = niche.split('__')
     df_cells = subset_mdata.to_df()
     df_cells[labels_key] = subset_mdata.obs[labels_key]
@@ -216,6 +218,7 @@ def plot_niche_scores(quiche_op,
                       seg_suffix: str = "_whole_cell.tiff",
                       vmin: Optional[Union[int, float]] = None,
                       vmax: Optional[Union[int, float]] = None,
+                      vcenter: Optional[Union[int, float]] = None, 
                       cmap: Union[str, np.ndarray] = "vlag",
                       background_color: np.ndarray = np.array([0.3, 0.3, 0.3, 1]),
                       style: str = "seaborn-v0_8-paper",
@@ -288,12 +291,13 @@ def plot_niche_scores(quiche_op,
     if not hasattr(quiche_op, 'mdata'):
         raise AttributeError("Must run quiche first.")
     
-    try:
-        quiche_op.mdata['spatial_nhood'].obs[metric] = quiche_op.mdata['quiche'].var[metric].values
-    except:
-        raise KeyError(f"{metric} is not a valid metric.")
+    if metric not in quiche_op.adata_niche.obs.columns:
+        if metric not in quiche_op.mdata['quiche'].var.columns:
+            raise KeyError(f"{metric} is not a valid metric.")
+        metric_df = quiche_op.mdata['quiche'].var[['index_cell', metric]].set_index('index_cell')
+        quiche_op.adata_niche.obs[metric] = metric_df.reindex(quiche_op.adata_niche.obs_names).values
 
-    subset_mdata = quiche_op.mdata['spatial_nhood'][quiche_op.mdata['spatial_nhood'].obs.loc[:, annotation_key] == niche]
+    subset_mdata = quiche_op.adata_niche[quiche_op.adata_niche.obs.loc[:, annotation_key] == niche]
     cell_type_list = niche.split('__')
     df_cells = subset_mdata.to_df()
     df_cells[labels_key] = subset_mdata.obs[labels_key]
@@ -311,8 +315,10 @@ def plot_niche_scores(quiche_op,
         vmin = df_cells[metric].min()
     if vmax is None:
         vmax = df_cells[metric].max()
-
-    norm = Normalize(vmin=vmin, vmax=vmax)
+    if vcenter is not None:
+        norm = TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+    else:
+        norm = Normalize(vmin=vmin, vmax=vmax)
 
     with tqdm(total=len(fovs), desc="Plotting niche scores", unit="FOVs") as pbar:
         for fov in fovs:
@@ -1280,3 +1286,36 @@ def plot_differential_cell_type_abundance(norm_counts: pd.DataFrame,
             plt.savefig(os.path.join(save_directory, f"abundance.pdf"), bbox_inches='tight', dpi=400)
     else:
         plt.show()
+
+def plot_recall(df, n_largest = 3, extrapolated_key = 'quiche_niche_neighborhood_extrapolated', seed = 42, save_directory = 'figures', filename_save = 'niche_annotation_recall_quiche_knn_prediction'):
+    sns.set_style('ticks')
+    plot_df = df[df.loc[:, 'n_largest'] == n_largest].copy()
+
+    rng = np.random.default_rng(seed)
+    plot_df["recall_jitter"] = (plot_df["top_recall"] + rng.normal(0, 0.005, len(plot_df)))
+
+    fig, ax = plt.subplots(1, 2, figsize=(8, 3.5), constrained_layout=True)
+
+    sns.scatterplot(data=plot_df, x=f"avg_{extrapolated_key}_probability", y="recall_jitter", s=50, hue = 'significant', palette = {'0':'black', '1':'red'}, alpha=0.8, ax=ax[0])
+
+    ax[0].set_xlabel("Avg. Classification Probability", fontsize=12)
+    ax[0].set_ylabel(f"Top-{n_largest} recall", fontsize=12)
+    ax[0].set_ylim(0, 1.05)
+
+    sns.scatterplot(data=plot_df, x="size", y="recall_jitter", s=50, hue = 'significant', palette = {'0':'black', '1':'red'}, alpha=0.8, ax=ax[1])
+
+    ax[1].set_xlabel("Niche size", fontsize=12)
+    ax[1].set_ylabel(f"Top-{n_largest} recall", fontsize=12)
+    ax[1].set_xscale("log")
+    ax[1].set_ylim(0, 1.05)
+
+    for a in ax:
+        a.tick_params(axis="both", which="major", labelsize=10, length=4, width=1)
+        sns.despine(ax=a)
+
+    xlim = ax[1].get_xlim()
+    ax[1].text(xlim[1] * 0.5, 0.3, np.round(plot_df['top_recall'].mean(), 3), size = 10)
+
+    os.makedirs(save_directory, exist_ok = True)
+
+    plt.savefig(os.path.join(save_directory, filename_save + '.pdf'), bbox_inches = 'tight')
