@@ -291,6 +291,7 @@ def compute_spatial_neighbors(adata: anndata.AnnData,
 def compute_niche_network(niche_df: pd.DataFrame,
                           colors_dict: Dict,
                           lineage_dict: Dict,
+                          scale = None,
                           annotation_key: str = 'quiche_niche_neighborhood'):
     """Computes niche network. Cell types are connected to one another according to the number of unique patients with corresponding interaction
 
@@ -302,6 +303,8 @@ def compute_niche_network(niche_df: pd.DataFrame,
         dictionary containing cell type colors
     lineage_dict: dictionary (default = None)
         dictionary containing lineage colors
+    scale: (default = None)
+        whether to scale edge weights according to the total number of samples in this condition
     annotation_key: str (default = 'quiche_niche_neighborhood')
         string referring to the column in niche_df with niche annotations
 
@@ -336,6 +339,9 @@ def compute_niche_network(niche_df: pd.DataFrame,
                 edge_dict[edge] = set(row['patient_ids']) 
 
     edge_weights = {edge: len(patients) for edge, patients in edge_dict.items()}
+
+    if scale is not None:
+        edge_weights = {edge: len(patients) / scale for edge, patients in edge_dict.items()}
 
     G = nx.Graph()
     for node in node_dict:

@@ -13,6 +13,7 @@
 - Modified `annotate_niches`, `plot_niches`, and `plot_niche_scores` to predict the annotations for cells not within the subsample.
 - Modified `plot_niche_scores` to include `vcenter`. 
 - Modified `compute_functional_expression` to accept predicted out of sample annotations. 
+- Modified `compute_niche_network` and `plot_niche_network_donut` to enable sample-level scaling. 
 
 ### Fixed
 - Followed PR by @tuhulab, thank you for finding some these errors. Will reserve PR for modernization workflows.

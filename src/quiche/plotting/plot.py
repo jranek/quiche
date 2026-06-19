@@ -24,6 +24,7 @@ import matplotlib.colors as mcolors
 import scanpy as sc
 import anndata
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib.colors import LinearSegmentedColormap
 
 sns.set_style('ticks')
 
@@ -804,7 +805,8 @@ def plot_niche_network_donut(G: nx.Graph,
                             node_order: Optional[List[str]] = None,
                             fontsize: int = 10,
                             buffer: float = 1.5,
-                            weightscale: float = 0.4,
+                            scale_edge_width: bool = False,
+                            normalize: bool = False,
                             min_node_size: float = 50,
                             max_node_size: float = 500,
                             donut_radius_inner: float = 1.15,
@@ -814,7 +816,7 @@ def plot_niche_network_donut(G: nx.Graph,
                             lineage_dict: Optional[Dict[str, str]] = None,
                             curvature: float = 0.2,
                             edge_cmap: str = 'viridis',
-                            vmin: Optional[float] = 1,
+                            vmin: Optional[float] = None,
                             vmax: Optional[float] = None,
                             edge_width: float = 2,
                             label_lineages: bool = True,
@@ -839,8 +841,11 @@ def plot_niche_network_donut(G: nx.Graph,
         font size for node labels
     buffer: float (default = 1.5)
         margin around the figure in plot coordinates
-    weightscale: float (default = 0.4)
-        scaling factor to adjust edge weights. edge weights are used to color the edges
+    scale_edge_width: bool (default = False)
+        whether edges should be scaled by their weight or abundance across samples
+    normalize: bool (default = False)
+        whether to show absolute sample count (False) or normalized according to the total number of samples in this condition (True)
+        should only be set to True, if niche network was scaled
     min_node_size: float (default = 50)
         minimum node size for scaling centrality
     max_node_size: float (default = 500)
@@ -935,9 +940,21 @@ def plot_niche_network_donut(G: nx.Graph,
     num_nodes = len(node_order)
     pos = {node: [np.cos(2 * np.pi * i / num_nodes), np.sin(2 * np.pi * i / num_nodes)] 
            for i, node in enumerate(node_order)}
+    
+    all_weights = [G[u][v].get('weight', 1.0) for u, v in G.edges()]
 
-    if vmax is None:
-        vmax = np.max([G[u][v].get('weight', 1.0) for u, v in G.edges()])
+    if normalize:
+        if vmin is None:
+            vmin = 0.0
+        if vmax is None:
+            vmax = 1.0
+        colorbar_label = "Ratio of " + edge_label
+    else:
+        if vmin is None:
+            vmin = 0.0
+        if vmax is None:
+            vmax = np.max(all_weights) if all_weights else 1.0
+        colorbar_label = edge_label
 
     norm = Normalize(vmin = vmin, vmax = vmax)
 
@@ -968,15 +985,27 @@ def plot_niche_network_donut(G: nx.Graph,
     ]
 
     fig, ax = plt.subplots(figsize=figsize)
+    def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=256):
+        new_cmap = LinearSegmentedColormap.from_list(
+            f'trunc({edge_cmap},{minval:.2f},{maxval:.2f})',
+            cmap(np.linspace(minval, maxval, n))
+        )
+        return new_cmap
+
+    # Original plasma goes from dark purple → orange → yellow
+    # Let's stop it before it reaches yellow (~0.9)
+    edge_cmap = truncate_colormap(edge_cmap, 0.1, 0.8)
     for (u, v, data) in G.edges(data=True):
         x1, y1 = pos[u]
         x2, y2 = pos[v]
-        color = edge_cmap(norm(data.get('weight', 1.0) * weightscale / weightscale)) #color edges according to weight
+        weight = data.get('weight', 1.0) 
+        color = edge_cmap(norm(weight))
+        edge_thickness = (weight * edge_width) + edge_width if scale_edge_width else edge_width
         arrow = FancyArrowPatch(
             (x1, y1), (x2, y2),
             connectionstyle=f"arc3,rad={curvature}",
             color=color,
-            linewidth=edge_width,
+            linewidth=edge_thickness,
             antialiased=True,
             arrowstyle='-',
         )
@@ -1076,9 +1105,13 @@ def plot_niche_network_donut(G: nx.Graph,
 
     cbar_ax = fig.add_axes([0.82, 0.1, 0.12, 0.02])
     cbar = ColorbarBase(cbar_ax, cmap=edge_cmap, norm=norm, orientation='horizontal')
-    cbar.set_label(edge_label, fontsize=fontsize)
-    cbar.set_ticks([vmin, vmax])
-    cbar.set_ticklabels([f"{int(vmin)}", f"{int(vmax)}"])
+    cbar.set_label(colorbar_label, fontsize=fontsize)
+    if normalize:
+        cbar.set_ticks([vmin, (vmin + vmax) / 2, vmax])
+        cbar.set_ticklabels([f"{vmin:.2f}", f"{(vmin + vmax) / 2:.2f}", f"{vmax:.2f}"])
+    else:
+        cbar.set_ticks([vmin, vmax])
+        cbar.set_ticklabels([f"{int(vmin)}", f"{int(vmax)}"])
     cbar.ax.tick_params(labelsize=fontsize-2)
 
     plt.tight_layout()
