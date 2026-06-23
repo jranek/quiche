@@ -60,23 +60,3 @@ def test_compute_niche_metadata_and_filter_niches():
         annotation_key="quiche_niche_neighborhood",
     )
     assert isinstance(scores_df, pd.DataFrame)
-
-# def test_run_milo_requires_optional_dependencies(monkeypatch, synthetic_adata):
-#     monkeypatch.setattr(metrics, "pt", None)
-#     with pytest.raises(ImportError, match="pertpy"):
-#         metrics.run_milo(synthetic_adata)
-
-# def test_differential_cell_type_abundance_binary(synthetic_adata):
-#     condition_dict = {"p1": "0", "p2": "1"}
-#     norm_counts, results_df = metrics.differential_cell_type_abundance(
-#         synthetic_adata,
-#         condition_dict=condition_dict,
-#         patient_key="Patient_ID",
-#         labels_key="cell_cluster",
-#         condition_key="condition",
-#         condition_type="binary",
-#         id1="0",
-#         id2="1",
-#     )
-#     assert "FDR_p_value" in results_df.columns
-#     assert "Patient_ID" in norm_counts.columns
