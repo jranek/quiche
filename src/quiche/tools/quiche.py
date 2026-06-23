@@ -13,7 +13,6 @@ from numba import njit
 from sklearn.base import BaseEstimator
 from pandas.api.types import is_numeric_dtype
 from tqdm_joblib import tqdm_joblib
-from tqdm import tqdm
 from sklearn.neighbors import KNeighborsClassifier
 from typing import List, Optional, Union
 logging.basicConfig(level=logging.INFO)
@@ -482,8 +481,10 @@ class QUICHE(BaseEstimator):
                 return ''
             sorted_labels = '__'.join(sorted(selected_labels))
             return sorted_labels
-
-        annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in tqdm(range(n_niches), desc="Labeling Niches"))
+    
+        with tqdm_joblib(total=n_niches, desc='Labeling Niches'):
+            annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(n_niches))
+            
         return annotations
 
     def _prepare_split(
@@ -641,11 +642,8 @@ class QUICHE(BaseEstimator):
 
         total_niches = len(nn_array)
 
-        progress = tqdm(total=total_niches, desc="Computing Functional Expression")
-        context_manager = tqdm_joblib(progress) if tqdm_joblib is not None else nullcontext()
-        with context_manager:
+        with tqdm_joblib(total=total_niches, desc='Computing Functional Expression'):
             func_results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(total_niches))
-        progress.close()
 
         func_arr = [df for sublist in func_results for df in sublist]
 
