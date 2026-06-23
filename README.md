@@ -4,7 +4,7 @@ QUantitative InterCellular nicHe Enrichment
 
 ## Introduction
 
-QUICHE is a statistical differential abundance testing method that can be used to discover cellular niches differentially enriched in spatial regions, longitudinal samples, or clinical patient groups. For more details on the method, please read the associated preprint: [Ranek JS, Greenwald NF, Goldston M, Camacho Fullaway C, Sowers C, Kong A, Mouron S, Quintela-Fandino M, West RB, Angelo M. QUICHE reveals structural definitions of anti-tumor responses in triple negative breast cancer. 2024](https://www.biorxiv.org/content/10.1101/2025.01.06.631548v1).
+QUICHE is a statistical differential abundance testing method that can be used to discover cellular niches differentially enriched in spatial regions, longitudinal samples, or clinical patient groups. For more details on the method, please read the associated publication: [Ranek JS, Greenwald NF, Goldston M, Camacho Fullaway C, Sowers C, Kong A, Mouron S, Quintela-Fandino M, West RB, Bendall SC, Angelo M. The automated computational workflow QUICHE reveals structural definitions of antitumor responses in triple-negative breast cancer. Nature Cancer. 2026](https://www.nature.com/articles/s43018-026-01122-5).
 
 <p>
   <img src="https://github.com/jranek/quiche/blob/main/docs/pipeline.png?raw=True" />
@@ -47,10 +47,7 @@ Then install the packages as,
 ```R
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
-
-#statmod v1.5.0
-install.packages('statmod')
-
+    
 #edger v3.40.2
 BiocManager::install("edgeR")
 ```
@@ -100,7 +97,8 @@ quiche_op.subsample(sketch_size = sketch_size, sketch_key = 'Patient_ID', n_jobs
 ## step 3: test for differential spatial enrichment across relapse conditions
 quiche_op.differential_enrichment(design = '~Relapse', model_contrasts = 'Relapse1-Relapse0', k_sim = 100)
 ## step 4: annotate niche neighborhoods
-quiche_op.annotate_niches(nlargest = 3, annotation_scheme = 'neighborhood', annotation_key = 'quiche_niche_neighborhood')
+### set extrapolate to False if you only want subsampled annotations and want to save on runtime
+quiche_op.annotate_niches(nlargest = 3, annotation_key = 'quiche_niche_neighborhood', extrapolate = True, k_sim = 100, n_jobs = 8)
 ```
 
 ## License

@@ -20,6 +20,8 @@ def make_directory(directory: str = None):
     Returns
     ----------
     """
+    if directory is None:
+        raise ValueError("directory must be provided.")
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -63,7 +65,8 @@ def create_single_positive_table(marker_vals: pd.DataFrame,
             contains the marker intensities as well as the single positive marker data
     """
     # create binary functional marker table, append to anndata table
-    for marker, threshold in threshold_list:
+    threshold_iter = threshold_list.items() if isinstance(threshold_list, dict) else threshold_list
+    for marker, threshold in threshold_iter:
         marker_vals[marker] = (marker_vals[marker].values >= threshold).astype('int')
 
     return marker_vals

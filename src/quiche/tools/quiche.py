@@ -7,12 +7,13 @@ import quiche as qu
 from sketchKH import sketch
 import logging
 from muon import MuData
+from contextlib import nullcontext
 from joblib import Parallel, delayed
 from numba import njit
 from sklearn.base import BaseEstimator
 from pandas.api.types import is_numeric_dtype
 from tqdm_joblib import tqdm_joblib
-from tqdm import tqdm
+from sklearn.neighbors import KNeighborsClassifier
 from typing import List, Optional, Union
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -132,6 +133,10 @@ class QUICHE(BaseEstimator):
 
         if self.spatial_key not in self.adata.obsm:
             raise KeyError(f"'{self.spatial_key}' key is not in adata.obsm.")
+        
+        if isinstance(self.adata.obsm['spatial'], pd.DataFrame):
+            self.adata.obsm[self.spatial_key] = self.adata.obsm[self.spatial_key].to_numpy()
+            logger.info(f"Converted .obsm[{self.spatial_key}] to numpy array.")
 
         try:
             self.adata.obs[self.fov_key] = self.adata.obs[self.fov_key].astype('category')
@@ -190,11 +195,12 @@ class QUICHE(BaseEstimator):
         """
         logger.info('Computing spatial niches...')
         if khop is not None:
+            k_neighbors = 10 if n_neighbors is None else n_neighbors
             niche_df, _ = qu.tl.spatial_niches_khop(
                 self.adata,
                 radius = radius,
                 p = p,
-                n_neighbors = n_neighbors,
+                k = k_neighbors,
                 khop = khop,
                 min_cell_threshold = min_cell_threshold,
                 labels_key = self.labels_key,
@@ -366,25 +372,28 @@ class QUICHE(BaseEstimator):
 
     def annotate_niches(
         self,
-        annotation_scheme: str = 'neighborhood',
         annotation_key: str = 'quiche_niche_neighborhood',
+        extrapolate: bool = False, 
         nlargest: int = 3,
         min_perc: float = 0.1,
+        k_sim: int = 100,
         n_jobs: int = -1
     ):
         """
-        Label niches based on the specified labeling scheme.
+        Label niches.
 
         Parameters
         ----------
-        annotation_scheme: str (default = 'neighborhood')
-            scheme to use for labeling ('neighborhood' or 'fov')
         annotation_key: str (default = 'quiche_niche_neighborhood')
             column in mdata['quiche'].var for storing annotated niche neighborhoods
+        extrapolate: bool (default = False)
+            boolean indicating whether knn classifier should be used to predict annotations for cells not in subsample
         nlargest: int (default = 3)
             number of top cell types to label niche neighborhoods
         min_perc: float (default = 0.1)
             minimum proportion for cell type to be considering in labeling
+        k_sim: int (default = 100)
+            number of nearest neighbors in knn classification graph construction. Should match previous k_sim. 
         n_jobs: int (default = -1)
             number of tasks for parallelization
 
@@ -394,38 +403,39 @@ class QUICHE(BaseEstimator):
 
         Example usage
         ----------
-        # annotate niche neighborhoods by the top 3 most abundant cell types using the niche similarity graph
-        quiche_op.annotate_niches(nlargest = 3, annotation_scheme = 'neighborhood', annotation_key = 'quiche_niche_neighborhood')
+        # annotate niche neighborhoods by the top 3 most abundant cell types using the niche similarity graph, 
+        # then label all cells according to their actual and predicted neighborhood annotations
+        quiche_op.annotate_niches(nlargest = 3, annotation_key = 'quiche_niche_neighborhood', extrapolate = True, k_sim = 100)
 
-        # annotate niche neighborhoods by the top 5 most abundant cell types using the fov
-        quiche_op.annotate_niches(nlargest = 5, annotation_scheme = 'fov', annotation_key = 'quiche_niche_fov')
+        # annotate niche neighborhoods by the top 5 most abundant cell types
+        quiche_op.annotate_niches(nlargest = 5, annotation_key = 'quiche_niche_neighborhood', extrapolate = False)
         """
         if self.mdata is None:
             raise RuntimeError("Differential enrichment testing has not been performed. call 'differential_enrichment' first.")
 
-        logger.info(f"Annotating niches using scheme: {annotation_scheme}...")
-        if annotation_scheme == 'neighborhood':
-            annotations = self.compute_niche_abundance_neighborhood(
-                nlargest = nlargest,
-                min_perc = min_perc,
-                n_jobs = n_jobs
-            )
-        elif annotation_scheme == 'fov':
-            annotations = self.compute_niche_abundance_fov(
-                nlargest = nlargest,
-                min_perc = min_perc,
-                n_jobs = n_jobs
-            )
-        else:
-            raise ValueError("invalid annotation_scheme. choose 'neighborhood' or 'fov'.")
-
+        logger.info(f"Annotating niche neighborhoods...")
+        annotations = self.compute_niche_abundance_neighborhood(nlargest = nlargest, min_perc = min_perc, n_jobs = n_jobs)
         self.mdata['quiche'].var[annotation_key] = annotations
         self.mdata['spatial_nhood'].obs[annotation_key] = annotations
 
-        try:
-            self.mdata['quiche'].var[annotation_key].loc[np.isin(self.mdata['quiche'].var['index_cell'], self.cells_nonn)] = 'unidentified'
-        except:
-            pass
+        niche_obs = self.adata_niche.obs_names
+        is_subsample = niche_obs.isin(self.adata_niche_subsample.obs_names)
+        subsample_annotations = self.mdata["quiche"].var.set_index("index_cell")[annotation_key]
+        niche_annotations = pd.Series(index = niche_obs, dtype=object)
+        niche_annotations[is_subsample] = subsample_annotations.loc[niche_obs[is_subsample]].values ##reorders subsampled row order to all row order
+        niche_annotations[~is_subsample] = np.nan
+        self.adata_niche.obs[annotation_key] = niche_annotations
+
+        if self.cells_nonn is not None and 'index_cell' in self.mdata['quiche'].var.columns:
+            mask = np.isin(self.mdata['quiche'].var['index_cell'], self.cells_nonn)
+            self.mdata['quiche'].var.loc[mask, annotation_key] = 'Unidentified'
+            self.mdata['spatial_nhood'].obs.loc[mask, annotation_key] = 'Unidentified'
+        
+        if extrapolate:
+            logger.info(f"Predicting out of sample niche neighborhoods. Will take some time...")
+            total_labels, total_conf = self._predict(annotation_key = annotation_key, k_sim = k_sim, n_jobs = n_jobs, algorithm = 'kd_tree')
+            self.adata_niche.obs[f"{annotation_key}_extrapolated"] = total_labels
+            self.adata_niche.obs[f"{annotation_key}_extrapolated_probability"] = total_conf
 
     def compute_niche_abundance_neighborhood(
         self,
@@ -471,49 +481,57 @@ class QUICHE(BaseEstimator):
                 return ''
             sorted_labels = '__'.join(sorted(selected_labels))
             return sorted_labels
-
-        annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in tqdm(range(n_niches), desc="Labeling Niches"))
-        return annotations
-
-    def compute_niche_abundance_fov(
-        self,
-        nlargest = 3,
-        min_perc = 0.1,
-        n_jobs = -1
-    ):
-        """
-        Label niches based on field of view (FOV) information.
-
-        Parameters
-        ----------
-        nlargest: int (default = 3)
-            number of top cell types to label niche neighborhoods
-        min_perc: float (default = 0.1)
-            minimum proportion for cell type to be considering in labeling
-        n_jobs: int (default = -1)
-            number of tasks for parallelization
-
-        Returns
-        ----------
-        annotations : list
-            List of annotation strings for each niche.
-        """
-        df = self.mdata['spatial_nhood'].to_df()
-        labels_names = df.columns.tolist()
-        data = df.values
-
-        def process_niche(row):
-            selected_indices = get_top_indices(row, nlargest, min_perc)
-            selected_labels = [labels_names[idx] for idx in selected_indices if idx != -1]
-            if selected_labels:
-                sorted_labels = '__'.join(sorted(selected_labels))
-                return sorted_labels
-            else:
-                return 'unidentified'
-
-        annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(row) for row in tqdm(data, desc="Labeling Niches"))
-        return annotations
     
+        with tqdm_joblib(total=n_niches, desc='Labeling Niches'):
+            annotations = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(n_niches))
+            
+        return annotations
+
+    def _prepare_split(
+            self,
+            annotation_key: str = 'quiche_niche_neighborhood'
+            ):
+        
+        niche_obs = self.adata_niche.obs_names
+        is_subsample = niche_obs.isin(self.adata_niche_subsample.obs_names)
+
+        subsample_label_df = self.mdata["quiche"].var.set_index("index_cell")[annotation_key]
+
+        X_train = self.adata_niche_subsample.X ##subsampled row order
+        y_train = subsample_label_df.values ##subsampled row order
+        X_test  = self.adata_niche[~is_subsample].X ##all row order
+
+        return X_train, y_train, X_test, subsample_label_df, is_subsample
+
+    def _predict(
+            self,
+            annotation_key: str = "quiche_niche_neighborhood",
+            k_sim: int = 100,
+            n_jobs: int = 8,
+            algorithm: str = "kd_tree"
+            ):
+
+        niche_obs = self.adata_niche.obs_names
+        X_train, y_train, X_test, subsample_label_df, is_subsample = self._prepare_split(annotation_key)
+
+        knn = KNeighborsClassifier(n_neighbors = k_sim, algorithm = algorithm, n_jobs = n_jobs)
+        knn.fit(X_train, y_train)
+
+        y_proba = knn.predict_proba(X_test)
+        pred_idx = y_proba.argmax(axis = 1)
+        y_pred = knn.classes_[pred_idx]
+        confidence = y_proba[np.arange(len(y_proba)), pred_idx]
+
+        total_labels = pd.Series(index = niche_obs, dtype = object)
+        total_labels[is_subsample] = subsample_label_df.loc[niche_obs[is_subsample]].values ##reorders subsampled row order to all row order
+        total_labels[~is_subsample] = y_pred ##all row order
+
+        total_conf = pd.Series(index = niche_obs, dtype = float)
+        total_conf[is_subsample] = 1.0
+        total_conf[~is_subsample] = confidence
+
+        return total_labels, total_conf
+
     def compute_functional_expression(
         self,
         niches: Optional[List[str]] = None,
@@ -569,16 +587,21 @@ class QUICHE(BaseEstimator):
 
         if niches is None:
             raise ValueError("niches must be provided as a list of niches of interest.")
+    
+        if foldchange_key not in self.adata_niche.obs.columns:
+            if foldchange_key not in self.mdata['quiche'].var.columns:
+                raise KeyError(f"{foldchange_key} is not a valid metric.")
+            metric_df = self.mdata['quiche'].var[['index_cell', foldchange_key]].set_index('index_cell')
+            self.adata_niche.obs[foldchange_key] = metric_df.reindex(self.adata_niche.obs_names).values
 
-        fov_obs_names = self.mdata['spatial_nhood'].obs_names
+        fov_obs_names = self.adata_niche.obs_names ##
         expression_obs_names = self.mdata['expression'].obs_names
         idx = expression_obs_names.get_indexer(fov_obs_names)
         conn_mat = self.mdata['expression'].obsp['spatial_connectivities'][idx, :]
 
-        quiche_var = self.mdata['quiche'].var
-        sig_bool = np.isin(quiche_var[annotation_key].values, niches)
+        sig_bool = np.isin(self.adata_niche.obs[annotation_key].values, niches) ##
         conn_mat = conn_mat[sig_bool, :]
-        niche_list = quiche_var[annotation_key].values[sig_bool]
+        niche_list = self.adata_niche.obs[annotation_key].values[sig_bool] ##
 
         if not isinstance(conn_mat, csr_matrix):
             conn_mat = csr_matrix(conn_mat)
@@ -619,7 +642,7 @@ class QUICHE(BaseEstimator):
 
         total_niches = len(nn_array)
 
-        with tqdm_joblib(tqdm(total=total_niches, desc="Computing Functional Expression")):
+        with tqdm_joblib(total=total_niches, desc='Computing Functional Expression'):
             func_results = Parallel(n_jobs=n_jobs, backend='threading')(delayed(process_niche)(i) for i in range(total_niches))
 
         func_arr = [df for sublist in func_results for df in sublist]
@@ -631,5 +654,6 @@ class QUICHE(BaseEstimator):
 
         adata_func = anndata.AnnData(func_df.drop(columns = [annotation_key, self.labels_key, self.segmentation_label_key, f'{annotation_key}_cell_type', self.fov_key]))
         adata_func.obs = func_df.loc[:, [annotation_key, self.labels_key, f'{annotation_key}_cell_type', self.segmentation_label_key, self.fov_key]]
-        adata_func.obs = pd.merge(adata_func.obs, pd.DataFrame(self.mdata['quiche'].var.groupby([annotation_key])[foldchange_key].mean()), on = [annotation_key]) ##average logFC of the niche neighborhood
+        adata_func.obs = pd.merge(adata_func.obs, pd.DataFrame(self.adata_niche.obs.groupby([annotation_key])[foldchange_key].mean()), on = [annotation_key]) ##average logFC of the niche neighborhood
+
         self.adata_func = adata_func

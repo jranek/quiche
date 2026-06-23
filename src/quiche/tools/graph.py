@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import igraph as ig
 import scipy
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
@@ -11,33 +10,6 @@ import networkx as nx
 from itertools import combinations
 from typing import Union, Optional, Dict
 
-def get_igraph(W: np.ndarray = None,
-               directed: bool = None):
-    """Converts adjacency matrix into igraph object
-
-    Parameters
-    ----------
-    W: (default = None)
-        adjacency matrix
-    directed: bool (default = None)
-        whether graph is directed or not
-
-    Returns
-    ----------
-    g: ig.Graph
-        graph of adjacency matrix
-    """
-    sources, targets = W.nonzero()
-    weights = W[sources, targets]
-    if type(weights) == np.matrix:
-        weights = weights.A1 #flattens 
-    g = ig.Graph(directed = directed)
-    g.add_vertices(np.shape(W)[0])
-    g.add_edges(list(zip(sources, targets)))
-    g.es['weight'] = weights  
-
-    return g
-
 def heat_kernel(dist: np.ndarray = None,
                 radius: int = 3):
     """Transforms distances into weights using heat kernel
@@ -46,7 +18,7 @@ def heat_kernel(dist: np.ndarray = None,
     ----------
     dist: np.ndarray (default = None)
         distance matrix (dimensions = cells x k)
-    radius: np.int (default = 3)
+    radius: int (default = 3)
         defines the per-cell bandwidth parameter (distance to the radius nn)
 
     Returns
@@ -173,10 +145,14 @@ def spatial_niches_khop(adata: anndata.AnnData,
                     niche_df_fov = pd.concat([niche_df_fov, niche_df_fov_], axis = 0)
             niche_df_fov.index = adata_fov.obs_names[~np.isin(adata_fov.obs_names, cells2remove)]
             niche_df.append(niche_df_fov)
-    try:
-        cells2remove = np.concatenate(cells2remove)    
-    except:
-        pass
+            
+    flattened_cells2remove = []
+    for cell in cells2remove:
+        if isinstance(cell, (list, tuple, np.ndarray, pd.Index)):
+            flattened_cells2remove.extend(list(cell))
+        else:
+            flattened_cells2remove.append(cell)
+    cells2remove = np.array(flattened_cells2remove, dtype=object)
     niche_df = pd.concat(niche_df, axis = 0)
     niche_df = niche_df.fillna(0).copy()
     niche_df = niche_df.loc[adata.obs_names[~np.isin(adata.obs_names, list(set(cells2remove)))]]
@@ -315,6 +291,7 @@ def compute_spatial_neighbors(adata: anndata.AnnData,
 def compute_niche_network(niche_df: pd.DataFrame,
                           colors_dict: Dict,
                           lineage_dict: Dict,
+                          scale = None,
                           annotation_key: str = 'quiche_niche_neighborhood'):
     """Computes niche network. Cell types are connected to one another according to the number of unique patients with corresponding interaction
 
@@ -326,6 +303,8 @@ def compute_niche_network(niche_df: pd.DataFrame,
         dictionary containing cell type colors
     lineage_dict: dictionary (default = None)
         dictionary containing lineage colors
+    scale: (default = None)
+        whether to scale edge weights according to the total number of samples in this condition
     annotation_key: str (default = 'quiche_niche_neighborhood')
         string referring to the column in niche_df with niche annotations
 
@@ -360,6 +339,9 @@ def compute_niche_network(niche_df: pd.DataFrame,
                 edge_dict[edge] = set(row['patient_ids']) 
 
     edge_weights = {edge: len(patients) for edge, patients in edge_dict.items()}
+
+    if scale is not None:
+        edge_weights = {edge: len(patients) / scale for edge, patients in edge_dict.items()}
 
     G = nx.Graph()
     for node in node_dict:

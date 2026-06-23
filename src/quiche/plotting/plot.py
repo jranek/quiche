@@ -23,6 +23,9 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.colors as mcolors
 import scanpy as sc
 import anndata
+from matplotlib.colors import TwoSlopeNorm
+from matplotlib.colors import LinearSegmentedColormap
+
 sns.set_style('ticks')
 
 def generate_colors(cmap: str = "viridis",
@@ -32,7 +35,7 @@ def generate_colors(cmap: str = "viridis",
     if not isinstance(n_colors, int) or (n_colors < 2) or (n_colors > 6):
         raise ValueError("n_colors must be an integer between 2 and 6")
     if isinstance(cmap, list):
-        colors = [scalar_mappable.to_rgba(color, alpha=alpha) for color in cmap]
+        colors = [mcolors.to_rgba(color, alpha=alpha) for color in cmap]
     else:
         scalar_mappable = ScalarMappable(cmap=cmap)
         colors = scalar_mappable.to_rgba(range(n_colors), alpha=alpha).tolist()
@@ -104,7 +107,7 @@ def plot_niches(quiche_op,
     if isinstance(segmentation_directory, str):
         segmentation_directory = pathlib.Path(segmentation_directory)
     if save_directory is None:
-       save_directory = pathlib.Path(os.path.join('figures', metric))
+       save_directory = pathlib.Path(os.path.join('figures', 'niche_masks'))
     elif isinstance(save_directory, str):
         save_directory = pathlib.Path(save_directory)
     if not save_directory.exists():
@@ -118,7 +121,7 @@ def plot_niches(quiche_op,
     if not hasattr(quiche_op, 'mdata'):
         raise AttributeError("Must run quiche first.")
 
-    subset_mdata = quiche_op.mdata['spatial_nhood'][quiche_op.mdata['spatial_nhood'].obs.loc[:, annotation_key] == niche]
+    subset_mdata = quiche_op.adata_niche[quiche_op.adata_niche.obs.loc[:, annotation_key] == niche]
     cell_type_list = niche.split('__')
     df_cells = subset_mdata.to_df()
     df_cells[labels_key] = subset_mdata.obs[labels_key]
@@ -216,6 +219,7 @@ def plot_niche_scores(quiche_op,
                       seg_suffix: str = "_whole_cell.tiff",
                       vmin: Optional[Union[int, float]] = None,
                       vmax: Optional[Union[int, float]] = None,
+                      vcenter: Optional[Union[int, float]] = None, 
                       cmap: Union[str, np.ndarray] = "vlag",
                       background_color: np.ndarray = np.array([0.3, 0.3, 0.3, 1]),
                       style: str = "seaborn-v0_8-paper",
@@ -288,12 +292,13 @@ def plot_niche_scores(quiche_op,
     if not hasattr(quiche_op, 'mdata'):
         raise AttributeError("Must run quiche first.")
     
-    try:
-        quiche_op.mdata['spatial_nhood'].obs[metric] = quiche_op.mdata['quiche'].var[metric].values
-    except:
-        raise KeyError(f"{metric} is not a valid metric.")
+    if metric not in quiche_op.adata_niche.obs.columns:
+        if metric not in quiche_op.mdata['quiche'].var.columns:
+            raise KeyError(f"{metric} is not a valid metric.")
+        metric_df = quiche_op.mdata['quiche'].var[['index_cell', metric]].set_index('index_cell')
+        quiche_op.adata_niche.obs[metric] = metric_df.reindex(quiche_op.adata_niche.obs_names).values
 
-    subset_mdata = quiche_op.mdata['spatial_nhood'][quiche_op.mdata['spatial_nhood'].obs.loc[:, annotation_key] == niche]
+    subset_mdata = quiche_op.adata_niche[quiche_op.adata_niche.obs.loc[:, annotation_key] == niche]
     cell_type_list = niche.split('__')
     df_cells = subset_mdata.to_df()
     df_cells[labels_key] = subset_mdata.obs[labels_key]
@@ -311,8 +316,10 @@ def plot_niche_scores(quiche_op,
         vmin = df_cells[metric].min()
     if vmax is None:
         vmax = df_cells[metric].max()
-
-    norm = Normalize(vmin=vmin, vmax=vmax)
+    if vcenter is not None:
+        norm = TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+    else:
+        norm = Normalize(vmin=vmin, vmax=vmax)
 
     with tqdm(total=len(fovs), desc="Plotting niche scores", unit="FOVs") as pbar:
         for fov in fovs:
@@ -460,10 +467,15 @@ def beeswarm(quiche_op,
     anno_df["is_signif"] = anno_df[pvalue_key] < alpha
     anno_df = anno_df[anno_df[annotation_key] != "nan"]
 
-    cmap_df = pd.DataFrame(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean(), columns=[logfc_key])
-    cmap = np.full(np.shape(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean())[0], 'lightgrey', dtype='object')
-    cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() <= 0] = list(colors_dict.values())[0]
-    cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() > 0] = list(colors_dict.values())[1]
+    mean_logfc_by_niche = mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean()
+    mean_logfc_by_condition = mdata['quiche'].var.groupby(condition_key)[logfc_key].mean()
+    min_name = mean_logfc_by_condition.idxmin()
+    max_name = mean_logfc_by_condition.idxmax()
+
+    cmap_df = pd.DataFrame(mean_logfc_by_niche, columns=[logfc_key])
+    cmap = np.full(mean_logfc_by_niche.shape[0], 'lightgrey', dtype='object')
+    cmap[mean_logfc_by_niche <= 0] = colors_dict[min_name]
+    cmap[mean_logfc_by_niche > 0] = colors_dict[max_name]
 
     cmap_df['cmap'] = cmap
 
@@ -670,15 +682,20 @@ def beeswarm_proportion(quiche_op,
         anno_df = nhood_adata.obs[[annotation_key, logfc_key, pvalue_key]].copy()
         anno_df["is_signif"] = anno_df[pvalue_key] < alpha
         anno_df = anno_df[anno_df[annotation_key] != "nan"]
+        mean_logfc_by_niche = mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean()
+        mean_logfc_by_condition = mdata['quiche'].var.groupby(condition_key)[logfc_key].mean()
+        min_name = mean_logfc_by_condition.idxmin()
+        max_name = mean_logfc_by_condition.idxmax()
 
-        cmap_df = pd.DataFrame(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean(), columns = [logfc_key])
-        cmap = np.full(np.shape(mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean())[0], 'lightgrey', dtype = 'object')
-        cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() <= 0] = list(colors_dict.values())[0]
-        cmap[mdata['quiche'].var.groupby(annotation_key)[logfc_key].mean() > 0] = list(colors_dict.values())[1]
+        cmap_df = pd.DataFrame(mean_logfc_by_niche, columns=[logfc_key])
+        cmap = np.full(mean_logfc_by_niche.shape[0], 'lightgrey', dtype='object')
+        cmap[mean_logfc_by_niche <= 0] = colors_dict[min_name]
+        cmap[mean_logfc_by_niche > 0] = colors_dict[max_name]
 
         cmap_df['cmap'] = cmap
+
         fig = plt.figure(figsize=figsize)
-        gs = GridSpec(1, 2, width_ratios=[1, 0.4])  # 2 columns with equal width
+        gs = GridSpec(1, 2, width_ratios=[1, 0.4]) 
 
         ax0 = plt.subplot(gs[0])
         ax1 = plt.subplot(gs[1])
@@ -788,7 +805,8 @@ def plot_niche_network_donut(G: nx.Graph,
                             node_order: Optional[List[str]] = None,
                             fontsize: int = 10,
                             buffer: float = 1.5,
-                            weightscale: float = 0.4,
+                            scale_edge_width: bool = False,
+                            normalize: bool = False,
                             min_node_size: float = 50,
                             max_node_size: float = 500,
                             donut_radius_inner: float = 1.15,
@@ -798,7 +816,7 @@ def plot_niche_network_donut(G: nx.Graph,
                             lineage_dict: Optional[Dict[str, str]] = None,
                             curvature: float = 0.2,
                             edge_cmap: str = 'viridis',
-                            vmin: Optional[float] = 1,
+                            vmin: Optional[float] = None,
                             vmax: Optional[float] = None,
                             edge_width: float = 2,
                             label_lineages: bool = True,
@@ -823,8 +841,11 @@ def plot_niche_network_donut(G: nx.Graph,
         font size for node labels
     buffer: float (default = 1.5)
         margin around the figure in plot coordinates
-    weightscale: float (default = 0.4)
-        scaling factor to adjust edge weights. edge weights are used to color the edges
+    scale_edge_width: bool (default = False)
+        whether edges should be scaled by their weight or abundance across samples
+    normalize: bool (default = False)
+        whether to show absolute sample count (False) or normalized according to the total number of samples in this condition (True)
+        should only be set to True, if niche network was scaled
     min_node_size: float (default = 50)
         minimum node size for scaling centrality
     max_node_size: float (default = 500)
@@ -919,9 +940,21 @@ def plot_niche_network_donut(G: nx.Graph,
     num_nodes = len(node_order)
     pos = {node: [np.cos(2 * np.pi * i / num_nodes), np.sin(2 * np.pi * i / num_nodes)] 
            for i, node in enumerate(node_order)}
+    
+    all_weights = [G[u][v].get('weight', 1.0) for u, v in G.edges()]
 
-    if vmax is None:
-        vmax = np.max([G[u][v].get('weight', 1.0) for u, v in G.edges()])
+    if normalize:
+        if vmin is None:
+            vmin = 0.0
+        if vmax is None:
+            vmax = 1.0
+        colorbar_label = "Ratio of " + edge_label
+    else:
+        if vmin is None:
+            vmin = 0.0
+        if vmax is None:
+            vmax = np.max(all_weights) if all_weights else 1.0
+        colorbar_label = edge_label
 
     norm = Normalize(vmin = vmin, vmax = vmax)
 
@@ -952,15 +985,27 @@ def plot_niche_network_donut(G: nx.Graph,
     ]
 
     fig, ax = plt.subplots(figsize=figsize)
+    def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=256):
+        new_cmap = LinearSegmentedColormap.from_list(
+            f'trunc({edge_cmap},{minval:.2f},{maxval:.2f})',
+            cmap(np.linspace(minval, maxval, n))
+        )
+        return new_cmap
+
+    # Original plasma goes from dark purple → orange → yellow
+    # Let's stop it before it reaches yellow (~0.9)
+    edge_cmap = truncate_colormap(edge_cmap, 0.1, 0.8)
     for (u, v, data) in G.edges(data=True):
         x1, y1 = pos[u]
         x2, y2 = pos[v]
-        color = edge_cmap(norm(data.get('weight', 1.0) * weightscale / weightscale)) #color edges according to weight
+        weight = data.get('weight', 1.0) 
+        color = edge_cmap(norm(weight))
+        edge_thickness = (weight * edge_width) + edge_width if scale_edge_width else edge_width
         arrow = FancyArrowPatch(
             (x1, y1), (x2, y2),
             connectionstyle=f"arc3,rad={curvature}",
             color=color,
-            linewidth=edge_width,
+            linewidth=edge_thickness,
             antialiased=True,
             arrowstyle='-',
         )
@@ -1060,9 +1105,13 @@ def plot_niche_network_donut(G: nx.Graph,
 
     cbar_ax = fig.add_axes([0.82, 0.1, 0.12, 0.02])
     cbar = ColorbarBase(cbar_ax, cmap=edge_cmap, norm=norm, orientation='horizontal')
-    cbar.set_label(edge_label, fontsize=fontsize)
-    cbar.set_ticks([vmin, vmax])
-    cbar.set_ticklabels([f"{int(vmin)}", f"{int(vmax)}"])
+    cbar.set_label(colorbar_label, fontsize=fontsize)
+    if normalize:
+        cbar.set_ticks([vmin, (vmin + vmax) / 2, vmax])
+        cbar.set_ticklabels([f"{vmin:.2f}", f"{(vmin + vmax) / 2:.2f}", f"{vmax:.2f}"])
+    else:
+        cbar.set_ticks([vmin, vmax])
+        cbar.set_ticklabels([f"{int(vmin)}", f"{int(vmax)}"])
     cbar.ax.tick_params(labelsize=fontsize-2)
 
     plt.tight_layout()
@@ -1270,3 +1319,36 @@ def plot_differential_cell_type_abundance(norm_counts: pd.DataFrame,
             plt.savefig(os.path.join(save_directory, f"abundance.pdf"), bbox_inches='tight', dpi=400)
     else:
         plt.show()
+
+def plot_recall(df, n_largest = 3, extrapolated_key = 'quiche_niche_neighborhood_extrapolated', seed = 42, save_directory = 'figures', filename_save = 'niche_annotation_recall_quiche_knn_prediction'):
+    sns.set_style('ticks')
+    plot_df = df[df.loc[:, 'n_largest'] == n_largest].copy()
+
+    rng = np.random.default_rng(seed)
+    plot_df["recall_jitter"] = (plot_df["top_recall"] + rng.normal(0, 0.005, len(plot_df)))
+
+    fig, ax = plt.subplots(1, 2, figsize=(8, 3.5), constrained_layout=True)
+
+    sns.scatterplot(data=plot_df, x=f"avg_{extrapolated_key}_probability", y="recall_jitter", s=50, hue = 'significant', palette = {'0':'black', '1':'red'}, alpha=0.8, ax=ax[0])
+
+    ax[0].set_xlabel("Avg. Classification Probability", fontsize=12)
+    ax[0].set_ylabel(f"Top-{n_largest} recall", fontsize=12)
+    ax[0].set_ylim(0, 1.05)
+
+    sns.scatterplot(data=plot_df, x="size", y="recall_jitter", s=50, hue = 'significant', palette = {'0':'black', '1':'red'}, alpha=0.8, ax=ax[1])
+
+    ax[1].set_xlabel("Niche size", fontsize=12)
+    ax[1].set_ylabel(f"Top-{n_largest} recall", fontsize=12)
+    ax[1].set_xscale("log")
+    ax[1].set_ylim(0, 1.05)
+
+    for a in ax:
+        a.tick_params(axis="both", which="major", labelsize=10, length=4, width=1)
+        sns.despine(ax=a)
+
+    xlim = ax[1].get_xlim()
+    ax[1].text(xlim[1] * 0.5, 0.3, np.round(plot_df['top_recall'].mean(), 3), size = 10)
+
+    os.makedirs(save_directory, exist_ok = True)
+
+    plt.savefig(os.path.join(save_directory, filename_save + '.pdf'), bbox_inches = 'tight')
