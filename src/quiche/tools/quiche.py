@@ -134,7 +134,7 @@ class QUICHE(BaseEstimator):
         if self.spatial_key not in self.adata.obsm:
             raise KeyError(f"'{self.spatial_key}' key is not in adata.obsm.")
         
-        if isinstance(self.adata.obsm['spatial'], pd.DataFrame):
+        if isinstance(self.adata.obsm[self.spatial_key], pd.DataFrame):
             self.adata.obsm[self.spatial_key] = self.adata.obsm[self.spatial_key].to_numpy()
             logger.info(f"Converted .obsm[{self.spatial_key}] to numpy array.")
 
