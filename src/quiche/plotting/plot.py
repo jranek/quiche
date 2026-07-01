@@ -1138,6 +1138,7 @@ def plot_differential_expression(quiche_op,
                                 vmax: float = 1,
                                 vcenter: float = 0,
                                 dendrogram: bool = True,
+                                colorbar_title: str = 'std. dev. \n (niche, cohort)', 
                                 save_directory: Optional[Union[str, os.PathLike]] = None,
                                 filename_save: Optional[str] = None):
     """
@@ -1167,6 +1168,8 @@ def plot_differential_expression(quiche_op,
         center value for colormap normalization
     dendrogram: bool (default = True)
         boolean specifying whether to include a dendrogram 
+    colorbar_title: str (default = 'std. dev. \n (niche, cohort)')
+        title on colorbar. If standardized, then 'std. dev. (niche, cohort)'
     save_directory: Optional[Union[pathlib.Path, str]] (default = None)
         string specifying where plots should be saved. If None, will not save
     filename_save: Optional[str] (default = None)
@@ -1211,7 +1214,7 @@ def plot_differential_expression(quiche_op,
                      vmax = vmax,
                      vcenter = vcenter,
                      cmap = cmap, 
-                     colorbar_title = 'std. dev. \n (niche, cohort)', 
+                     colorbar_title = colorbar_title, 
                      ax = axes,
                      return_fig = True)
     
