@@ -812,6 +812,7 @@ def plot_niche_network_donut(G: nx.Graph,
                             donut_radius_inner: float = 1.15,
                             donut_radius_outer: float = 1.25,
                             centrality_measure: str = 'degree',
+                            centrality_thresh: float = 0.001,
                             colors_dict: Optional[Dict[str, str]] = None,
                             lineage_dict: Optional[Dict[str, str]] = None,
                             curvature: float = 0.2,
@@ -856,6 +857,8 @@ def plot_niche_network_donut(G: nx.Graph,
         outer radius for the donut representing lineages
     centrality_measure: str (default = 'degree')
         centrality measure for node sizing. (e.g. 'degree', 'betweenness', 'closeness', 'eigenvector')
+    centrality_thresh: float (default = 0.001)
+        minimum centrality value to show node
     colors_dict: dict or None (default = None)
         dictionary mapping lineages to colors
     lineage_dict: dict or None (default = None)
@@ -980,7 +983,7 @@ def plot_niche_network_donut(G: nx.Graph,
     #calculate node sizes based on centrality
     node_sizes = [
         min_node_size + (centrality[node] - min_centrality) / (max_centrality - min_centrality) * 
-        (max_node_size - min_node_size) if centrality[node] >= 0.001 else 0
+        (max_node_size - min_node_size) if centrality[node] >= centrality_thresh else 0
         for node in G.nodes()
     ]
 
