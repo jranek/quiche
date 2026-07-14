@@ -58,6 +58,7 @@ full = [
   "pertpy==0.6.0",
   "tqdm-joblib>=0.0.4,<0.1",
   "umap-learn>=0.5",
+  "setuptools<81.0.0",
   "jax>=0.4.13,<0.4.25",
   "jaxlib>=0.4.13,<0.4.25",
   "ott-jax==0.4.6",
